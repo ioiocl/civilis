@@ -1,0 +1,163 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Actividad {
+  id          String      @id @default(cuid())
+  hitoId      String
+  nombre      String
+  descripcion String
+  fechaInicio DateTime
+  fechaFin    DateTime
+  orden       Int
+  estado      EstadoHito  @default(PENDIENTE)
+  hito        Hito        @relation(fields: [hitoId], references: [id], onDelete: Cascade)
+  comentarios Comentario[]
+
+  @@unique([hitoId, orden])
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum EstadoObra {
+  PLANIFICADA
+  EN_EJECUCION
+  PAUSADA
+  FINALIZADA
+}
+
+enum EstadoHito {
+  PENDIENTE
+  EN_PROGRESO
+  COMPLETADO
+}
+
+enum TipoActor {
+  CONTRATISTA
+  INTERVENTOR
+  FISCALIZADOR
+  ENTIDAD_PUBLICA
+}
+
+enum TipoComentario {
+  INFO
+  ALERTA
+  AVANCE
+  INCIDENTE
+}
+
+enum RolUsuario {
+  ADMIN
+  FISCALIZADOR
+  CIUDADANO
+}
+
+model Usuario {
+  id           String       @id @default(cuid())
+  nombre       String
+  email        String       @unique
+  passwordHash String
+  rol          RolUsuario
+  createdAt    DateTime     @default(now())
+  comentarios  Comentario[]
+}
+
+model Obra {
+  id          String      @id @default(cuid())
+  nombre      String
+  descripcion String
+  ubicacion   String
+  encargado   String      @default("Sin asignar")
+  valor       Float       @default(0)
+  fechaInicio DateTime
+  fechaFin    DateTime
+  estado      EstadoObra   @default(PLANIFICADA)
+  creadoPor   String
+  createdAt   DateTime    @default(now())
+  hitos       Hito[]
+  obraActores ObraActor[]
+  planVersiones ObraPlanVersion[]
+}
+
+model Actor {
+  id           String      @id @default(cuid())
+  nombre       String
+  rol          String
+  organizacion String
+  email        String      @unique
+  obras        ObraActor[]
+}
+
+model ObraActor {
+  id        String    @id @default(cuid())
+  obraId    String
+  actorId   String
+  tipoActor TipoActor
+  obra      Obra      @relation(fields: [obraId], references: [id], onDelete: Cascade)
+  actor     Actor     @relation(fields: [actorId], references: [id], onDelete: Cascade)
+
+  @@unique([obraId, actorId, tipoActor])
+}
+
+model Hito {
+  id          String       @id @default(cuid())
+  obraId      String
+  nombre      String
+  descripcion String
+  fechaInicio DateTime
+  fechaFin    DateTime
+  orden       Int
+  estado      EstadoHito   @default(PENDIENTE)
+  obra        Obra         @relation(fields: [obraId], references: [id], onDelete: Cascade)
+  actividades Actividad[]
+  comentarios Comentario[]
+
+  @@unique([obraId, orden])
+}
+
+model Comentario {
+  id               String         @id @default(cuid())
+  hitoId           String
+  actividadId      String?
+  usuarioId        String
+  planVersionId    String?
+  planSnapshotHash String?
+  texto            String
+  tipo             TipoComentario
+  hashBlockchain   String?
+  txSignature      String?
+  createdAt        DateTime       @default(now())
+  hito             Hito           @relation(fields: [hitoId], references: [id], onDelete: Cascade)
+  actividad        Actividad?     @relation(fields: [actividadId], references: [id], onDelete: SetNull)
+  usuario          Usuario        @relation(fields: [usuarioId], references: [id], onDelete: Restrict)
+  planVersion      ObraPlanVersion? @relation(fields: [planVersionId], references: [id], onDelete: SetNull)
+  evidencias       Evidencia[]
+}
+
+model ObraPlanVersion {
+  id            String       @id @default(cuid())
+  obraId        String
+  version       Int
+  snapshotJson  Json
+  snapshotHash  String
+  txSignature   String?
+  vigente       Boolean      @default(true)
+  createdBy     String
+  createdAt     DateTime     @default(now())
+  obra          Obra         @relation(fields: [obraId], references: [id], onDelete: Cascade)
+  comentarios   Comentario[]
+
+  @@unique([obraId, version])
+}
+
+model Evidencia {
+  id           String      @id @default(cuid())
+  comentarioId String
+  tipo         String
+  url          String
+  hashArchivo  String
+  comentario   Comentario  @relation(fields: [comentarioId], references: [id], onDelete: Cascade)
+}

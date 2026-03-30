@@ -1,0 +1,121 @@
+# -----------------------
+# OS FILES
+# -----------------------
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# -----------------------
+# IDE / EDITOR
+# -----------------------
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# -----------------------
+# LOGS
+# -----------------------
+*.log
+logs/
+
+# -----------------------
+# ENVIRONMENT / SECRETS
+# -----------------------
+.env
+.env.*
+*.key
+*.pem
+secrets/
+config/local*
+
+# -----------------------
+# PYTHON
+# -----------------------
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+pip-wheel-metadata/
+
+# virtual environments
+venv/
+.env/
+.venv/
+ENV/
+
+# -----------------------
+# JUPYTER
+# -----------------------
+.ipynb_checkpoints
+
+# -----------------------
+# MACHINE LEARNING / AI
+# -----------------------
+datasets/
+data/
+checkpoints/
+models/
+weights/
+*.h5
+*.pt
+*.pth
+*.ckpt
+*.onnx
+
+# -----------------------
+# NODE / JAVASCRIPT
+# -----------------------
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+
+# -----------------------
+# BUILD FILES
+# -----------------------
+build/
+dist/
+target/
+out/
+
+# -----------------------
+# DOCKER
+# -----------------------
+docker-compose.override.yml
+
+# -----------------------
+# TEMP FILES
+# -----------------------
+tmp/
+temp/
+*.tmp
+.cache/
+
+# -----------------------
+# DATABASE
+# -----------------------
+*.sqlite
+*.db
+
+# -----------------------
+# TEST OUTPUT
+# -----------------------
+coverage/
+.coverage
+htmlcov/
+
+# -----------------------
+# SYSTEM FILES
+# -----------------------
+*.bak
+*.backup
+*.old
