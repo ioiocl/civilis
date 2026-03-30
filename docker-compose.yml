@@ -59,7 +59,7 @@ services:
     environment:
       NEXT_PUBLIC_API_BASE_URL: http://localhost:3000
     ports:
-      - "5173:5173"
+      - "80:80"
     volumes:
       - ./frontend:/app
       - /app/node_modules
