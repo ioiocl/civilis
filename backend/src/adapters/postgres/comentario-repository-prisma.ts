@@ -21,8 +21,10 @@ function mapComentario(row: any): Comentario {
     planSnapshotHash: row.planSnapshotHash,
     texto: row.texto,
     tipo: mapTipo(row.tipo),
+    severidad: row.severidad,
     hashBlockchain: row.hashBlockchain,
     txSignature: row.txSignature,
+    fechaInspeccion: row.fechaInspeccion ?? null,
     createdAt: row.createdAt,
   };
 }
@@ -48,8 +50,10 @@ export class ComentarioRepositoryPrisma implements ComentarioRepository {
         planSnapshotHash: data.planSnapshotHash,
         texto: data.texto,
         tipo: data.tipo,
+        severidad: data.severidad,
         hashBlockchain: data.hashBlockchain,
         txSignature: data.txSignature,
+        fechaInspeccion: data.fechaInspeccion,
       },
     });
 

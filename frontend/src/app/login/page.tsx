@@ -13,10 +13,17 @@ export default function LoginPage() {
   const [obras, setObras] = useState<Obra[]>([]);
   const [selectedObra, setSelectedObra] = useState<string>("");
   const [selectedObraGeneral, setSelectedObraGeneral] = useState<ObraGeneral | null>(null);
+  const [showObraMore, setShowObraMore] = useState(false);
+  const [obraSearch, setObraSearch] = useState("");
   const [hitos, setHitos] = useState<Hito[]>([]);
   const [actividadesByHito, setActividadesByHito] = useState<Record<string, Actividad[]>>({});
   const [comentariosByActividad, setComentariosByActividad] = useState<Record<string, Comentario[]>>({});
   const [selectedCommentId, setSelectedCommentId] = useState<string | null>(null);
+  const [selectedFiscActividadId, setSelectedFiscActividadId] = useState<string | null>(null);
+  const [selectedFiscActividadNombre, setSelectedFiscActividadNombre] = useState<string>("");
+  const [selectedFiscClickDate, setSelectedFiscClickDate] = useState<Date | undefined>(undefined);
+  const [expandedHitos, setExpandedHitos] = useState<Set<string>>(new Set());
+  const [selectedActivityId, setSelectedActivityId] = useState<string | null>(null);
   const [showCreateObra, setShowCreateObra] = useState(false);
   const [isCreatingObra, setIsCreatingObra] = useState(false);
   const [createObraError, setCreateObraError] = useState<string | null>(null);
@@ -89,9 +96,12 @@ export default function LoginPage() {
     setSession(data);
     const dataObras = await apiFetch<Obra[]>("/obras", {}, data.token);
     setObras(dataObras);
-    if (dataObras.length > 0) {
-      await loadObraDetail(dataObras[0].id, dataObras, data.token);
-    }
+    setSelectedObra("");
+    setSelectedObraGeneral(null);
+    setHitos([]);
+    setActividadesByHito({});
+    setComentariosByActividad({});
+    setObraSearch("");
   }
 
   async function crearHito() {
@@ -202,9 +212,6 @@ export default function LoginPage() {
     if (!session) return;
     const data = await apiFetch<Obra[]>("/obras", {}, session.token);
     setObras(data);
-    if (!selectedObra && data.length > 0) {
-      await loadObraDetail(data[0].id, data);
-    }
   }
 
   async function loadObraDetail(obraId: string, current?: Obra[], tokenOverride?: string) {
@@ -241,12 +248,19 @@ export default function LoginPage() {
     setComentariosByActividad(comentariosMap);
   }
 
-  async function enviarComentario(actividadId: string, texto: string, file?: File | null) {
+  async function openObraMore(obraId: string) {
+    await loadObraDetail(obraId);
+    setShowObraMore(true);
+  }
+
+  async function enviarComentario(actividadId: string, texto: string, severidad: "LEVE" | "MODERADO" | "GRAVE", file?: File | null, fechaInspeccion?: Date) {
     if (!session || !texto) return;
     const form = new FormData();
     form.append("texto", texto);
     form.append("tipo", "AVANCE");
+    form.append("severidad", severidad);
     if (file) form.append("evidencia", file);
+    if (fechaInspeccion) form.append("fechaInspeccion", fechaInspeccion.toISOString());
 
     const response = await fetch(`${API_BASE}/actividades/${actividadId}/comentarios`, {
       method: "POST",
@@ -314,6 +328,11 @@ export default function LoginPage() {
   }
 
   const selectedWork = useMemo(() => obras.find((o) => o.id === selectedObra), [obras, selectedObra]);
+  const filteredObras = useMemo(() => {
+    const q = obraSearch.trim().toLowerCase();
+    if (!q) return [];
+    return obras.filter((o) => o.nombre.toLowerCase().includes(q));
+  }, [obras, obraSearch]);
   const completedHitos = hitos.filter((h) => h.estado === "COMPLETADO").length;
   const progressByHitos = hitos.length > 0 ? Math.round((completedHitos / hitos.length) * 100) : 0;
   const sortedHitos = useMemo(() => [...hitos].sort((a, b) => a.orden - b.orden), [hitos]);
@@ -343,10 +362,13 @@ export default function LoginPage() {
   }, [selectedWork, today]);
 
   const orderedComments = useMemo(() => {
-    const flattened: Comentario[] = Object.values(comentariosByActividad as Record<string, Comentario[]>).reduce<Comentario[]>((acc, comments) => {
-      acc.push(...comments);
-      return acc;
-    }, []);
+    const flattened = Object.values(comentariosByActividad as Record<string, Comentario[]>).reduce(
+      (acc: Comentario[], comments) => {
+        acc.push(...comments);
+        return acc;
+      },
+      [] as Comentario[],
+    );
 
     return flattened.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }, [comentariosByActividad]);
@@ -355,6 +377,25 @@ export default function LoginPage() {
   const presupuestoM = selectedObraGeneral ? `$${(selectedObraGeneral.valor / 1_000_000).toFixed(1)}M` : "-";
   const responsibleEntity = selectedObraGeneral?.actores[0]?.organizacion ?? selectedObraGeneral?.encargado ?? "Sin definir";
   const selectedComment = orderedComments.find((comment) => comment.id === selectedCommentId) ?? null;
+
+  const selectedActivity = useMemo(() => {
+    if (!selectedActivityId) return null;
+    return allActividades.find((a) => a.id === selectedActivityId) ?? null;
+  }, [allActividades, selectedActivityId]);
+
+  function getSeverityPointClasses(severidad: "LEVE" | "MODERADO" | "GRAVE", isSelected: boolean): string {
+    const base = "absolute top-1/2 z-20 h-6 w-6 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white shadow";
+    const selected = isSelected ? " ring-2 ring-slate-200" : "";
+    if (severidad === "LEVE") return `${base} bg-yellow-500${selected}`;
+    if (severidad === "MODERADO") return `${base} bg-blue-500${selected}`;
+    return `${base} bg-red-500${selected}`;
+  }
+
+  function getSeverityGlyph(severidad: "LEVE" | "MODERADO" | "GRAVE"): string {
+    if (severidad === "LEVE") return "!";
+    if (severidad === "MODERADO") return "i";
+    return "!";
+  }
 
   const ganttStart = useMemo(() => {
     if (allActividades.length === 0) {
@@ -439,6 +480,7 @@ export default function LoginPage() {
                   Salir
                 </button>
               </div>
+            )}
             </div>
 
             {canCreateObra && showCreateObra && (
@@ -667,63 +709,117 @@ export default function LoginPage() {
           </section>
 
           <section className="rounded-3xl border border-slate-200 bg-white p-3 shadow-sm">
-            <div className="grid gap-3 rounded-2xl border border-sky-100 bg-[#f5fbfd] p-3 md:grid-cols-4">
-              <div className="md:col-span-4">
-                <p className="text-[11px] uppercase tracking-wide text-slate-500">Obras disponibles</p>
-                <div className="mt-2 grid gap-2 md:grid-cols-3">
-                  {obras.map((obra) => {
-                    const isActive = selectedObra === obra.id;
-                    return (
-                      <button
-                        key={obra.id}
-                        onClick={() => loadObraDetail(obra.id)}
-                        className={`rounded-2xl border p-3 text-left transition ${
-                          isActive
-                            ? "border-cyan-400 bg-cyan-50 shadow-[0_0_0_2px_rgba(34,211,238,0.25)]"
-                            : "border-slate-200 bg-white hover:border-cyan-200 hover:bg-slate-50"
-                        }`}
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <p className={`text-sm font-semibold ${isActive ? "text-cyan-900" : "text-slate-800"}`}>{obra.nombre}</p>
-                          <span
-                            className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                              isActive ? "bg-cyan-600 text-white" : "bg-slate-100 text-slate-600"
-                            }`}
-                          >
-                            {isActive ? "Ruta activa" : "Ver ruta"}
-                          </span>
-                        </div>
-                        <p className="mt-1 text-xs text-slate-600">{obra.ubicacion}</p>
-                        <div className="mt-2 flex items-center justify-between text-[11px]">
-                          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-slate-600">{obra.estado.replace("_", " ")}</span>
-                          <span className="font-semibold text-slate-700">${(obra.valor / 1_000_000).toFixed(1)}M</span>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
+            <div className="rounded-2xl border border-sky-100 bg-[#f5fbfd] p-4">
+              <div className="mx-auto w-full max-w-xl">
+                <p className="text-center text-[11px] font-semibold uppercase tracking-wide text-slate-500">Buscar obra</p>
+                <div className="relative mt-2">
+                  <input
+                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm shadow-sm outline-none focus:border-cyan-300 focus:ring-2 focus:ring-cyan-100"
+                    placeholder="Escribe el nombre de una obra..."
+                    value={obraSearch}
+                    onChange={(e) => {
+                      setObraSearch(e.target.value);
+                    }}
+                  />
 
-              <div className="rounded-xl border border-slate-200 bg-white p-3">
-                <p className="text-[11px] uppercase tracking-wide text-slate-500">Ubicación</p>
-                <p className="mt-1 text-sm font-semibold text-slate-800">{selectedObraGeneral?.ubicacion ?? "-"}</p>
-              </div>
-              <div className="rounded-xl border border-slate-200 bg-white p-3">
-                <p className="text-[11px] uppercase tracking-wide text-slate-500">Presupuesto</p>
-                <p className="mt-1 text-sm font-semibold text-slate-800">{presupuestoM}</p>
-              </div>
-              <div className="rounded-xl border border-slate-200 bg-white p-3">
-                <p className="text-[11px] uppercase tracking-wide text-slate-500">Avance Total</p>
-                <p className="mt-1 text-sm font-semibold text-slate-800">{progressByHitos}%</p>
-                <p className="text-[11px] text-slate-500">Esperado: {progressByTime}%</p>
-              </div>
-              <div className="rounded-xl border border-slate-200 bg-white p-3">
-                <p className="text-[11px] uppercase tracking-wide text-slate-500">Entidad Responsable</p>
-                <p className="mt-1 text-sm font-semibold text-slate-800">{responsibleEntity}</p>
+                  {filteredObras.length > 0 && (
+                    <div className="absolute left-0 right-0 top-full z-20 mt-2 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg">
+                      <div className="max-h-80 overflow-y-auto p-1">
+                        {filteredObras.map((obra) => (
+                          <button
+                            key={obra.id}
+                            type="button"
+                            className="w-full rounded-xl px-3 py-2 text-left hover:bg-slate-50"
+                            onClick={async () => {
+                              await loadObraDetail(obra.id);
+                              setObraSearch(obra.nombre);
+                            }}
+                          >
+                            <p className="text-sm font-semibold text-slate-800">{obra.nombre}</p>
+                            <p className="mt-0.5 text-xs text-slate-500">{obra.ubicacion}</p>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {selectedWork && (
+                  <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold text-slate-900">{selectedWork.nombre}</p>
+                        <p className="mt-1 text-xs text-slate-600">{selectedWork.ubicacion}</p>
+                        <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px]">
+                          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-slate-600">{selectedWork.estado.replace("_", " ")}</span>
+                          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-slate-600">${(selectedWork.valor / 1_000_000).toFixed(1)}M</span>
+                          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-slate-600">Avance: {progressByHitos}%</span>
+                          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-slate-600">Esperado: {progressByTime}%</span>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        className="shrink-0 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                        onClick={() => setShowObraMore(true)}
+                      >
+                        Ver más
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
-            <div className="mt-4 overflow-hidden rounded-3xl border border-sky-100 bg-[#eaf4f6] p-4">
+            {showObraMore && (
+              <div
+                className="fixed inset-0 z-[55] flex items-center justify-center bg-slate-950/70 p-4"
+                onClick={() => setShowObraMore(false)}
+              >
+                <motion.div
+                  initial={{ opacity: 0, y: 10, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  transition={{ duration: 0.18 }}
+                  className="w-full max-w-2xl overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+                    <div>
+                      <p className="text-sm font-semibold text-slate-800">Detalle de obra</p>
+                      <p className="text-[11px] text-slate-500">{selectedWork?.nombre ?? ""}</p>
+                    </div>
+                    <button
+                      className="rounded-full border border-slate-200 px-2 py-1 text-xs text-slate-600"
+                      onClick={() => setShowObraMore(false)}
+                    >
+                      Cerrar
+                    </button>
+                  </div>
+
+                  <div className="grid gap-3 p-4 md:grid-cols-2">
+                    <div className="rounded-xl border border-slate-200 bg-white p-3">
+                      <p className="text-[11px] uppercase tracking-wide text-slate-500">Ubicación</p>
+                      <p className="mt-1 text-sm font-semibold text-slate-800">{selectedObraGeneral?.ubicacion ?? "-"}</p>
+                    </div>
+                    <div className="rounded-xl border border-slate-200 bg-white p-3">
+                      <p className="text-[11px] uppercase tracking-wide text-slate-500">Presupuesto</p>
+                      <p className="mt-1 text-sm font-semibold text-slate-800">{presupuestoM}</p>
+                    </div>
+                    <div className="rounded-xl border border-slate-200 bg-white p-3">
+                      <p className="text-[11px] uppercase tracking-wide text-slate-500">Avance Total</p>
+                      <p className="mt-1 text-sm font-semibold text-slate-800">{progressByHitos}%</p>
+                      <p className="text-[11px] text-slate-500">Esperado: {progressByTime}%</p>
+                    </div>
+                    <div className="rounded-xl border border-slate-200 bg-white p-3">
+                      <p className="text-[11px] uppercase tracking-wide text-slate-500">Entidad Responsable</p>
+                      <p className="mt-1 text-sm font-semibold text-slate-800">{responsibleEntity}</p>
+                    </div>
+                  </div>
+                </motion.div>
+              </div>
+            )}
+
+            {selectedWork && (
+              <div className="mt-4 overflow-hidden rounded-3xl border border-sky-100 bg-[#eaf4f6] p-4">
               <div className="mb-3 inline-flex rounded-full border border-cyan-200 bg-white px-3 py-1 text-xs font-semibold text-cyan-800">
                 Vista Gantt de actividades por hito
               </div>
@@ -745,17 +841,37 @@ export default function LoginPage() {
                   <div className="mt-3 space-y-5">
                     {sortedHitos.map((hito, idx) => {
                       const actividades = [...(actividadesByHito[hito.id] ?? [])].sort((a, b) => a.orden - b.orden);
+                      const isExpanded = expandedHitos.has(hito.id);
 
                       return (
                         <motion.div key={hito.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.04 }}>
-                          <div className="mb-2 rounded-xl border border-slate-200 bg-white px-3 py-2">
-                            <p className="text-sm font-semibold text-slate-800">{hito.nombre}</p>
-                            <p className="mt-0.5 text-[11px] text-slate-500">{hito.descripcion}</p>
-                            <p className="mt-1 text-[10px] uppercase tracking-wide text-slate-400">
-                              {hito.estado.replace("_", " ")} · {new Date(hito.fechaInicio).toLocaleDateString()} - {new Date(hito.fechaFin).toLocaleDateString()}
-                            </p>
-                          </div>
+                          <button
+                            type="button"
+                            className="mb-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-left hover:bg-slate-50"
+                            onClick={() => {
+                              setExpandedHitos((prev) => {
+                                const next = new Set(prev);
+                                if (next.has(hito.id)) next.delete(hito.id);
+                                else next.add(hito.id);
+                                return next;
+                              });
+                            }}
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div>
+                                <p className="text-sm font-semibold text-slate-800">{hito.nombre}</p>
+                                <p className="mt-0.5 text-[11px] text-slate-500">{hito.descripcion}</p>
+                                <p className="mt-1 text-[10px] uppercase tracking-wide text-slate-400">
+                                  {hito.estado.replace("_", " ")} · {new Date(hito.fechaInicio).toLocaleDateString()} - {new Date(hito.fechaFin).toLocaleDateString()}
+                                </p>
+                              </div>
+                              <div className="shrink-0 rounded-full border border-slate-200 bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-600">
+                                {isExpanded ? "Ocultar" : "Ver"} ({actividades.length})
+                              </div>
+                            </div>
+                          </button>
 
+                          {isExpanded && (
                           <div className="space-y-2">
                             {actividades.map((actividad) => {
                               const start = new Date(actividad.fechaInicio).getTime();
@@ -774,10 +890,14 @@ export default function LoginPage() {
 
                               return (
                                 <div key={actividad.id} className="grid grid-cols-[240px_1fr] items-center gap-3">
-                                  <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
+                                  <button
+                                    type="button"
+                                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-left hover:bg-slate-50"
+                                    onClick={() => setSelectedActivityId(actividad.id)}
+                                  >
                                     <p className="text-xs font-semibold text-slate-800">{actividad.nombre}</p>
                                     <p className="mt-0.5 text-[11px] text-slate-500">{actividad.descripcion}</p>
-                                  </div>
+                                  </button>
 
                                   <div className="relative h-14 rounded-xl border border-slate-200 bg-white/90 px-2">
                                     {timelineTicks.map((tick) => (
@@ -791,26 +911,32 @@ export default function LoginPage() {
                                     <div className="absolute left-0 right-0 top-1/2 h-2 -translate-y-1/2 rounded-full bg-slate-200" />
 
                                     <div
-                                      className={`absolute top-1/2 h-3 -translate-y-1/2 rounded-full ${barColor}`}
+                                      className={`absolute top-1/2 h-3 -translate-y-1/2 rounded-full ${barColor} ${canComment ? "cursor-pointer hover:brightness-110" : ""}`}
                                       style={{ left: `${Math.max(0, Math.min(100, left))}%`, width: `${Math.min(100 - left, width)}%` }}
+                                      onClick={canComment ? (e) => {
+                                        const rect = e.currentTarget.getBoundingClientRect();
+                                        const ratio = (e.clientX - rect.left) / rect.width;
+                                        const clickTime = ganttStart.getTime() + ratio * ganttDurationMs;
+                                        setSelectedFiscClickDate(new Date(clickTime));
+                                        setSelectedFiscActividadId(actividad.id);
+                                        setSelectedFiscActividadNombre(actividad.nombre);
+                                      } : undefined}
                                     />
 
                                     {rowComments.map((comment) => {
-                                      const commentTime = new Date(comment.createdAt).getTime();
+                                      const commentTime = new Date(comment.fechaInspeccion ?? comment.createdAt).getTime();
                                       const commentLeft = ((commentTime - ganttStart.getTime()) / ganttDurationMs) * 100;
                                       const isSelected = selectedCommentId === comment.id;
 
                                       return (
                                         <button
                                           key={comment.id}
-                                          className={`absolute top-1/2 z-20 h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white shadow ${
-                                            isSelected ? "bg-rose-500 ring-2 ring-rose-200" : "bg-cyan-500"
-                                          }`}
+                                          className={getSeverityPointClasses(comment.severidad, isSelected)}
                                           style={{ left: `${Math.max(0, Math.min(100, commentLeft))}%` }}
                                           title="Abrir reporte fiscalizador"
                                           onClick={() => setSelectedCommentId(isSelected ? null : comment.id)}
                                         >
-                                          <span className="sr-only">Abrir comentario</span>
+                                          <span className="text-[10px] font-black leading-none text-white">{getSeverityGlyph(comment.severidad)}</span>
                                         </button>
                                       );
                                     })}
@@ -819,6 +945,7 @@ export default function LoginPage() {
                               );
                             })}
                           </div>
+                          )}
                         </motion.div>
                       );
                     })}
@@ -856,49 +983,49 @@ export default function LoginPage() {
                   </div>
                 </div>
               )}
-            </div>
-
-            {selectedObraGeneral && (
-              <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4">
-                <h3 className="text-sm font-semibold text-slate-800">Ficha general</h3>
-                <div className="mt-2 grid gap-2 text-xs text-slate-600 md:grid-cols-3">
-                  <p><strong>Nombre:</strong> {selectedObraGeneral.nombre}</p>
-                  <p><strong>Encargado:</strong> {selectedObraGeneral.encargado}</p>
-                  <p><strong>Periodo:</strong> {new Date(selectedObraGeneral.fechaInicio).toLocaleDateString()} - {new Date(selectedObraGeneral.fechaFin).toLocaleDateString()}</p>
-                  <p className="md:col-span-3"><strong>Descripción:</strong> {selectedObraGeneral.descripcion}</p>
-                </div>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {selectedObraGeneral.actores.map((actor) => (
-                    <span key={actor.id} className="rounded-full bg-slate-100 px-3 py-1 text-[11px] text-slate-600">
-                      {actor.tipoActor}: {actor.nombre}
-                    </span>
-                  ))}
-                </div>
               </div>
             )}
 
-            {canComment && (
-              <div className="mt-4 grid gap-3 md:grid-cols-2">
-                {sortedHitos.map((hito) => (
-                  <div key={hito.id} className="rounded-2xl border border-slate-200 bg-white p-3">
-                    <p className="text-sm font-semibold text-slate-800">{hito.nombre}</p>
-                    <p className="text-xs text-slate-500">Subir evidencia por actividad</p>
-                    <div className="mt-3 space-y-3">
-                      {(actividadesByHito[hito.id] ?? []).map((actividad) => (
-                        <div key={actividad.id} className="rounded-xl border border-slate-200 p-2">
-                          <p className="text-xs font-semibold text-slate-700">{actividad.nombre}</p>
-                          <CommentForm onSubmit={(texto, file) => enviarComentario(actividad.id, texto, file)} />
-                        </div>
-                      ))}
+
+            {selectedFiscActividadId && (
+              <div
+                className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4"
+                onClick={() => setSelectedFiscActividadId(null)}
+              >
+                <motion.div
+                  initial={{ opacity: 0, y: 10, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  transition={{ duration: 0.18 }}
+                  className="w-full max-w-md overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+                    <div>
+                      <p className="text-sm font-semibold text-slate-800">Registrar fiscalización</p>
+                      <p className="text-[11px] text-slate-500">{selectedFiscActividadNombre}</p>
                     </div>
+                    <button
+                      className="rounded-full border border-slate-200 px-2 py-1 text-xs text-slate-600"
+                      onClick={() => setSelectedFiscActividadId(null)}
+                    >
+                      Cerrar
+                    </button>
                   </div>
-                ))}
+                  <div className="px-4 py-4">
+                    <CommentForm
+                      onSubmit={async (texto, severidad, file) => {
+                        await enviarComentario(selectedFiscActividadId, texto, severidad, file, selectedFiscClickDate);
+                        setSelectedFiscActividadId(null);
+                      }}
+                    />
+                  </div>
+                </motion.div>
               </div>
             )}
 
             {selectedComment && (
               <div
-                className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4"
+                className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/70 p-4"
                 onClick={() => setSelectedCommentId(null)}
               >
                 <motion.div
@@ -932,7 +1059,114 @@ export default function LoginPage() {
                     </p>
                     <p>{selectedComment.texto}</p>
                     <div className="pt-1 text-[11px] text-slate-500">
-                      Tx: {selectedComment.txSignature ? selectedComment.txSignature.slice(0, 16) + "..." : "N/D"}
+                      Tx:{" "}
+                      {selectedComment.txSignature ? (
+                        <a
+                          href={`https://solscan.io/tx/${selectedComment.txSignature}?cluster=devnet`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="font-medium text-sky-700 underline underline-offset-2 hover:text-sky-800"
+                          title="Abrir en Solscan"
+                        >
+                          {selectedComment.txSignature.slice(0, 6)}...{selectedComment.txSignature.slice(-6)}
+                        </a>
+                      ) : (
+                        "N/D"
+                      )}
+                    </div>
+                  </div>
+                </motion.div>
+              </div>
+            )}
+
+            {selectedActivity && (
+              <div
+                className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4"
+                onClick={() => setSelectedActivityId(null)}
+              >
+                <motion.div
+                  initial={{ opacity: 0, y: 10, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  transition={{ duration: 0.18 }}
+                  className="w-full max-w-3xl overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+                    <div>
+                      <p className="text-sm font-semibold text-slate-800">{selectedActivity.nombre}</p>
+                      <p className="text-[11px] text-slate-500">Timeline de fiscalizaciones</p>
+                    </div>
+                    <button
+                      className="rounded-full border border-slate-200 px-2 py-1 text-xs text-slate-600"
+                      onClick={() => setSelectedActivityId(null)}
+                    >
+                      Cerrar
+                    </button>
+                  </div>
+
+                  <div className="space-y-3 px-4 py-4">
+                    <p className="text-xs text-slate-600">{selectedActivity.descripcion}</p>
+
+                    <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                      {(() => {
+                        const activityStart = new Date(selectedActivity.fechaInicio).getTime();
+                        const activityEnd = new Date(selectedActivity.fechaFin).getTime();
+                        const duration = Math.max(1, activityEnd - activityStart);
+                        const days = Math.max(1, Math.ceil(duration / (1000 * 60 * 60 * 24)));
+                        const timelineWidthPx = Math.min(4000, Math.max(980, Math.round(days * 40)));
+                        const divisions = 10;
+                        const ticks = Array.from({ length: divisions + 1 }, (_, idx) => {
+                          const ratio = idx / divisions;
+                          const time = activityStart + ratio * duration;
+                          return { key: idx, left: `${ratio * 100}%`, label: new Date(time).toLocaleDateString() };
+                        });
+                        const comments = [...(comentariosByActividad[selectedActivity.id] ?? [])].sort(
+                          (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+                        );
+
+                        const bucketCounts = new Map<number, number>();
+                        return (
+                          <div className="overflow-x-auto">
+                            <div className="space-y-3" style={{ width: timelineWidthPx }}>
+                              <div className="relative h-10">
+                                {ticks.map((tick) => (
+                                  <div key={tick.key} className="absolute top-0 -translate-x-1/2" style={{ left: tick.left }}>
+                                    <p className="text-[10px] text-slate-500">{tick.label}</p>
+                                    <span className="mx-auto mt-1 block h-1.5 w-1.5 rounded-full bg-slate-300" />
+                                  </div>
+                                ))}
+                              </div>
+
+                              <div className="relative h-20 rounded-xl bg-slate-50 px-2">
+                                <div className="absolute left-2 right-2 top-1/2 h-2 -translate-y-1/2 rounded-full bg-slate-200" />
+
+                                {comments.map((comment) => {
+                                  const commentTime = new Date(comment.fechaInspeccion ?? comment.createdAt).getTime();
+                                  const rawLeft = ((commentTime - activityStart) / duration) * 100;
+                                  const left = Math.max(0, Math.min(100, rawLeft));
+                                  const bucket = Math.round(left);
+                                  const count = bucketCounts.get(bucket) ?? 0;
+                                  bucketCounts.set(bucket, count + 1);
+                                  const yOffset = (count % 3) * 18 - 18;
+                                  const isSelected = selectedCommentId === comment.id;
+
+                                  return (
+                                    <button
+                                      key={comment.id}
+                                      className={getSeverityPointClasses(comment.severidad, isSelected)}
+                                      style={{ left: `${left}%`, marginTop: yOffset }}
+                                      title="Abrir reporte fiscalizador"
+                                      onClick={() => setSelectedCommentId(isSelected ? null : comment.id)}
+                                    >
+                                      <span className="text-[10px] font-black leading-none text-white">{getSeverityGlyph(comment.severidad)}</span>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })()}
                     </div>
                   </div>
                 </motion.div>
@@ -945,8 +1179,9 @@ export default function LoginPage() {
   );
 }
 
-function CommentForm({ onSubmit }: { onSubmit: (texto: string, file?: File | null) => Promise<void> }) {
+function CommentForm({ onSubmit }: { onSubmit: (texto: string, severidad: "LEVE" | "MODERADO" | "GRAVE", file?: File | null) => Promise<void> }) {
   const [texto, setTexto] = useState("");
+  const [severidad, setSeveridad] = useState<"LEVE" | "MODERADO" | "GRAVE">("LEVE");
   const [file, setFile] = useState<File | null>(null);
 
   return (
@@ -954,8 +1189,9 @@ function CommentForm({ onSubmit }: { onSubmit: (texto: string, file?: File | nul
       className="mt-3 space-y-2"
       onSubmit={async (e) => {
         e.preventDefault();
-        await onSubmit(texto, file);
+        await onSubmit(texto, severidad, file);
         setTexto("");
+        setSeveridad("LEVE");
         setFile(null);
       }}
     >
@@ -965,6 +1201,35 @@ function CommentForm({ onSubmit }: { onSubmit: (texto: string, file?: File | nul
         value={texto}
         onChange={(e) => setTexto(e.target.value)}
       />
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={() => setSeveridad("LEVE")}
+          className={`flex-1 rounded px-2 py-1 text-xs font-medium transition-colors ${
+            severidad === "LEVE" ? "bg-yellow-500 text-white" : "bg-yellow-100 text-yellow-700 hover:bg-yellow-200"
+          }`}
+        >
+          Leve
+        </button>
+        <button
+          type="button"
+          onClick={() => setSeveridad("MODERADO")}
+          className={`flex-1 rounded px-2 py-1 text-xs font-medium transition-colors ${
+            severidad === "MODERADO" ? "bg-blue-500 text-white" : "bg-blue-100 text-blue-700 hover:bg-blue-200"
+          }`}
+        >
+          Moderado
+        </button>
+        <button
+          type="button"
+          onClick={() => setSeveridad("GRAVE")}
+          className={`flex-1 rounded px-2 py-1 text-xs font-medium transition-colors ${
+            severidad === "GRAVE" ? "bg-red-500 text-white" : "bg-red-100 text-red-700 hover:bg-red-200"
+          }`}
+        >
+          Grave
+        </button>
+      </div>
       <input className="w-full text-xs" type="file" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
       <button className="w-full rounded bg-brand-700 px-2 py-1 text-xs text-white">Enviar evidencia</button>
     </form>

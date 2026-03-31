@@ -1,5 +1,7 @@
 export type TipoComentario = "INFO" | "ALERTA" | "AVANCE" | "INCIDENTE";
 
+export type SeveridadComentario = "LEVE" | "MODERADO" | "GRAVE";
+
 export interface Comentario {
   id: string;
   hitoId: string;
@@ -9,8 +11,10 @@ export interface Comentario {
   planSnapshotHash: string | null;
   texto: string;
   tipo: TipoComentario;
+  severidad: SeveridadComentario;
   hashBlockchain: string | null;
   txSignature: string | null;
+  fechaInspeccion: Date | null;
   createdAt: Date;
 }
 

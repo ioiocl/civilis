@@ -343,6 +343,8 @@ export function buildServer() {
 
     let texto = "";
     let tipo: "INFO" | "ALERTA" | "AVANCE" | "INCIDENTE" = "INFO";
+    let severidad: "LEVE" | "MODERADO" | "GRAVE" | undefined;
+    let fechaInspeccion: Date | undefined;
     const files: Array<{ filename: string; mimetype: string; buffer: Buffer }> = [];
 
     for await (const part of parts) {
@@ -355,6 +357,14 @@ export function buildServer() {
           const parsed = z.enum(["INFO", "ALERTA", "AVANCE", "INCIDENTE"]).safeParse(String(part.value));
           if (parsed.success) tipo = parsed.data;
         }
+        if (part.fieldname === "severidad") {
+          const parsed = z.enum(["LEVE", "MODERADO", "GRAVE"]).safeParse(String(part.value));
+          if (parsed.success) severidad = parsed.data;
+        }
+        if (part.fieldname === "fechaInspeccion") {
+          const d = new Date(String(part.value));
+          if (!isNaN(d.getTime())) fechaInspeccion = d;
+        }
       }
     }
 
@@ -363,7 +373,9 @@ export function buildServer() {
       usuarioId: request.user.sub,
       texto,
       tipo,
+      severidad,
       files,
+      fechaInspeccion,
     });
 
     return reply.code(201).send(comentario);

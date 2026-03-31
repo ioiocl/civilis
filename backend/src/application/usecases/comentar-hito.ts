@@ -25,7 +25,9 @@ export class ComentarHito {
     usuarioId: string;
     texto: string;
     tipo: "INFO" | "ALERTA" | "AVANCE" | "INCIDENTE";
+    severidad?: "LEVE" | "MODERADO" | "GRAVE";
     files: IncomingFile[];
+    fechaInspeccion?: Date;
   }): Promise<ComentarioConEvidencia> {
     const actividad = await prisma.actividad.findUnique({
       where: { id: input.actividadId },
@@ -92,8 +94,10 @@ export class ComentarHito {
       planSnapshotHash: planVersion.snapshotHash,
       texto: input.texto,
       tipo: input.tipo,
+      severidad: input.severidad,
       hashBlockchain: receipt.chainHash,
       txSignature: receipt.txSignature,
+      fechaInspeccion: input.fechaInspeccion,
     });
 
     await this.comentarioRepository.crearEvidencias(

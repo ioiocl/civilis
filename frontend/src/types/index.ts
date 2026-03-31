@@ -80,8 +80,10 @@ export interface Comentario {
   usuarioId: string;
   texto: string;
   tipo: string;
+  severidad: "LEVE" | "MODERADO" | "GRAVE";
   hashBlockchain: string | null;
   txSignature: string | null;
+  fechaInspeccion: string | null;
   createdAt: string;
   evidencias: Evidencia[];
 }

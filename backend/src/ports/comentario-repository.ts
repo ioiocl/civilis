@@ -1,5 +1,5 @@
 import type { Comentario, Evidencia } from "../domain/entities/comentario.js";
-import type { TipoComentario } from "../domain/entities/comentario.js";
+import type { SeveridadComentario, TipoComentario } from "../domain/entities/comentario.js";
 
 export interface CrearComentarioInput {
   hitoId: string;
@@ -9,8 +9,10 @@ export interface CrearComentarioInput {
   planSnapshotHash?: string;
   texto: string;
   tipo: TipoComentario;
+  severidad?: SeveridadComentario;
   hashBlockchain?: string;
   txSignature?: string;
+  fechaInspeccion?: Date;
 }
 
 export interface CrearEvidenciaInput {

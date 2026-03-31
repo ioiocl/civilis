@@ -49,6 +49,12 @@ enum TipoComentario {
   INCIDENTE
 }
 
+ enum SeveridadComentario {
+   LEVE
+   MODERADO
+   GRAVE
+ }
+
 enum RolUsuario {
   ADMIN
   FISCALIZADOR
@@ -127,8 +133,10 @@ model Comentario {
   planSnapshotHash String?
   texto            String
   tipo             TipoComentario
+  severidad        SeveridadComentario @default(LEVE)
   hashBlockchain   String?
   txSignature      String?
+  fechaInspeccion  DateTime?
   createdAt        DateTime       @default(now())
   hito             Hito           @relation(fields: [hitoId], references: [id], onDelete: Cascade)
   actividad        Actividad?     @relation(fields: [actividadId], references: [id], onDelete: SetNull)
