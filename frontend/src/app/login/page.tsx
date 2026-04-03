@@ -19,8 +19,6 @@ export default function LoginPage() {
   const [actividadesByHito, setActividadesByHito] = useState<Record<string, Actividad[]>>({});
   const [comentariosByActividad, setComentariosByActividad] = useState<Record<string, Comentario[]>>({});
   const [selectedCommentId, setSelectedCommentId] = useState<string | null>(null);
-  const [selectedFiscActividadId, setSelectedFiscActividadId] = useState<string | null>(null);
-  const [selectedFiscActividadNombre, setSelectedFiscActividadNombre] = useState<string>("");
   const [selectedFiscClickDate, setSelectedFiscClickDate] = useState<Date | undefined>(undefined);
   const [expandedHitos, setExpandedHitos] = useState<Set<string>>(new Set());
   const [selectedActivityId, setSelectedActivityId] = useState<string | null>(null);
@@ -911,16 +909,8 @@ export default function LoginPage() {
                                     <div className="absolute left-0 right-0 top-1/2 h-2 -translate-y-1/2 rounded-full bg-slate-200" />
 
                                     <div
-                                      className={`absolute top-1/2 h-3 -translate-y-1/2 rounded-full ${barColor} ${canComment ? "cursor-pointer hover:brightness-110" : ""}`}
+                                      className={`absolute top-1/2 h-3 -translate-y-1/2 rounded-full ${barColor}`}
                                       style={{ left: `${Math.max(0, Math.min(100, left))}%`, width: `${Math.min(100 - left, width)}%` }}
-                                      onClick={canComment ? (e) => {
-                                        const rect = e.currentTarget.getBoundingClientRect();
-                                        const ratio = (e.clientX - rect.left) / rect.width;
-                                        const clickTime = ganttStart.getTime() + ratio * ganttDurationMs;
-                                        setSelectedFiscClickDate(new Date(clickTime));
-                                        setSelectedFiscActividadId(actividad.id);
-                                        setSelectedFiscActividadNombre(actividad.nombre);
-                                      } : undefined}
                                     />
 
                                     {rowComments.map((comment) => {
@@ -962,7 +952,7 @@ export default function LoginPage() {
                   <span className="inline-flex items-center gap-2"><span className="h-2.5 w-6 rounded-full bg-amber-400" /> Hito en proceso</span>
                 </div>
                 <p className="mt-2 text-[11px] text-slate-500">
-                  Haz clic en una burbuja para abrir el reporte fiscalizador en popup.
+                  Haz clic en el nombre de una actividad para ver su progreso y agregar fiscalizaciones.
                 </p>
               </div>
 
@@ -987,41 +977,6 @@ export default function LoginPage() {
             )}
 
 
-            {selectedFiscActividadId && (
-              <div
-                className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4"
-                onClick={() => setSelectedFiscActividadId(null)}
-              >
-                <motion.div
-                  initial={{ opacity: 0, y: 10, scale: 0.98 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  transition={{ duration: 0.18 }}
-                  className="w-full max-w-md overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
-                    <div>
-                      <p className="text-sm font-semibold text-slate-800">Registrar fiscalización</p>
-                      <p className="text-[11px] text-slate-500">{selectedFiscActividadNombre}</p>
-                    </div>
-                    <button
-                      className="rounded-full border border-slate-200 px-2 py-1 text-xs text-slate-600"
-                      onClick={() => setSelectedFiscActividadId(null)}
-                    >
-                      Cerrar
-                    </button>
-                  </div>
-                  <div className="px-4 py-4">
-                    <CommentForm
-                      onSubmit={async (texto, severidad, file) => {
-                        await enviarComentario(selectedFiscActividadId, texto, severidad, file, selectedFiscClickDate);
-                        setSelectedFiscActividadId(null);
-                      }}
-                    />
-                  </div>
-                </motion.div>
-              </div>
-            )}
 
             {selectedComment && (
               <div
@@ -1082,91 +1037,131 @@ export default function LoginPage() {
             {selectedActivity && (
               <div
                 className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4"
-                onClick={() => setSelectedActivityId(null)}
+                onClick={() => { setSelectedActivityId(null); setSelectedFiscClickDate(undefined); }}
               >
                 <motion.div
                   initial={{ opacity: 0, y: 10, scale: 0.98 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   transition={{ duration: 0.18 }}
-                  className="w-full max-w-3xl overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl"
+                  className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+                  <div className="flex shrink-0 items-center justify-between border-b border-slate-100 px-4 py-3">
                     <div>
                       <p className="text-sm font-semibold text-slate-800">{selectedActivity.nombre}</p>
-                      <p className="text-[11px] text-slate-500">Timeline de fiscalizaciones</p>
+                      <p className="text-[11px] text-slate-500">Progreso y fiscalizaciones</p>
                     </div>
                     <button
                       className="rounded-full border border-slate-200 px-2 py-1 text-xs text-slate-600"
-                      onClick={() => setSelectedActivityId(null)}
+                      onClick={() => { setSelectedActivityId(null); setSelectedFiscClickDate(undefined); }}
                     >
                       Cerrar
                     </button>
                   </div>
 
-                  <div className="space-y-3 px-4 py-4">
-                    <p className="text-xs text-slate-600">{selectedActivity.descripcion}</p>
+                  <div className="overflow-y-auto">
+                    <div className="space-y-3 px-4 py-4">
+                      <p className="text-xs text-slate-600">{selectedActivity.descripcion}</p>
 
-                    <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                      {(() => {
-                        const activityStart = new Date(selectedActivity.fechaInicio).getTime();
-                        const activityEnd = new Date(selectedActivity.fechaFin).getTime();
-                        const duration = Math.max(1, activityEnd - activityStart);
-                        const days = Math.max(1, Math.ceil(duration / (1000 * 60 * 60 * 24)));
-                        const timelineWidthPx = Math.min(4000, Math.max(980, Math.round(days * 40)));
-                        const divisions = 10;
-                        const ticks = Array.from({ length: divisions + 1 }, (_, idx) => {
-                          const ratio = idx / divisions;
-                          const time = activityStart + ratio * duration;
-                          return { key: idx, left: `${ratio * 100}%`, label: new Date(time).toLocaleDateString() };
-                        });
-                        const comments = [...(comentariosByActividad[selectedActivity.id] ?? [])].sort(
-                          (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
-                        );
+                      <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                        {(() => {
+                          const activityStart = new Date(selectedActivity.fechaInicio).getTime();
+                          const activityEnd = new Date(selectedActivity.fechaFin).getTime();
+                          const duration = Math.max(1, activityEnd - activityStart);
+                          const days = Math.max(1, Math.ceil(duration / (1000 * 60 * 60 * 24)));
+                          const timelineWidthPx = Math.min(4000, Math.max(980, Math.round(days * 40)));
+                          const divisions = 10;
+                          const ticks = Array.from({ length: divisions + 1 }, (_, idx) => {
+                            const ratio = idx / divisions;
+                            const time = activityStart + ratio * duration;
+                            return { key: idx, left: `${ratio * 100}%`, label: new Date(time).toLocaleDateString() };
+                          });
+                          const comments = [...(comentariosByActividad[selectedActivity.id] ?? [])].sort(
+                            (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+                          );
 
-                        const bucketCounts = new Map<number, number>();
-                        return (
-                          <div className="overflow-x-auto">
-                            <div className="space-y-3" style={{ width: timelineWidthPx }}>
-                              <div className="relative h-10">
-                                {ticks.map((tick) => (
-                                  <div key={tick.key} className="absolute top-0 -translate-x-1/2" style={{ left: tick.left }}>
-                                    <p className="text-[10px] text-slate-500">{tick.label}</p>
-                                    <span className="mx-auto mt-1 block h-1.5 w-1.5 rounded-full bg-slate-300" />
-                                  </div>
-                                ))}
-                              </div>
+                          const bucketCounts = new Map<number, number>();
+                          return (
+                            <div className="overflow-x-auto">
+                              <div className="space-y-3" style={{ width: timelineWidthPx }}>
+                                <div className="relative h-10">
+                                  {ticks.map((tick) => (
+                                    <div key={tick.key} className="absolute top-0 -translate-x-1/2" style={{ left: tick.left }}>
+                                      <p className="text-[10px] text-slate-500">{tick.label}</p>
+                                      <span className="mx-auto mt-1 block h-1.5 w-1.5 rounded-full bg-slate-300" />
+                                    </div>
+                                  ))}
+                                </div>
 
-                              <div className="relative h-20 rounded-xl bg-slate-50 px-2">
-                                <div className="absolute left-2 right-2 top-1/2 h-2 -translate-y-1/2 rounded-full bg-slate-200" />
+                                <div
+                                  className={`relative h-20 rounded-xl bg-slate-50 px-2 ${canComment ? "cursor-crosshair" : ""}`}
+                                  onClick={canComment ? (e) => {
+                                    const rect = e.currentTarget.getBoundingClientRect();
+                                    const ratio = (e.clientX - rect.left) / rect.width;
+                                    const clickTime = activityStart + ratio * duration;
+                                    setSelectedFiscClickDate(new Date(clickTime));
+                                  } : undefined}
+                                >
+                                  <div className="absolute left-2 right-2 top-1/2 h-2 -translate-y-1/2 rounded-full bg-slate-200" />
 
-                                {comments.map((comment) => {
-                                  const commentTime = new Date(comment.fechaInspeccion ?? comment.createdAt).getTime();
-                                  const rawLeft = ((commentTime - activityStart) / duration) * 100;
-                                  const left = Math.max(0, Math.min(100, rawLeft));
-                                  const bucket = Math.round(left);
-                                  const count = bucketCounts.get(bucket) ?? 0;
-                                  bucketCounts.set(bucket, count + 1);
-                                  const yOffset = (count % 3) * 18 - 18;
-                                  const isSelected = selectedCommentId === comment.id;
+                                  {selectedFiscClickDate && canComment && (() => {
+                                    const markerLeft = Math.max(0, Math.min(100, ((selectedFiscClickDate.getTime() - activityStart) / duration) * 100));
+                                    return (
+                                      <span
+                                        className="absolute top-0 h-full w-0.5 bg-brand-600/60"
+                                        style={{ left: `${markerLeft}%` }}
+                                      />
+                                    );
+                                  })()}
 
-                                  return (
-                                    <button
-                                      key={comment.id}
-                                      className={getSeverityPointClasses(comment.severidad, isSelected)}
-                                      style={{ left: `${left}%`, marginTop: yOffset }}
-                                      title="Abrir reporte fiscalizador"
-                                      onClick={() => setSelectedCommentId(isSelected ? null : comment.id)}
-                                    >
-                                      <span className="text-[10px] font-black leading-none text-white">{getSeverityGlyph(comment.severidad)}</span>
-                                    </button>
-                                  );
-                                })}
+                                  {comments.map((comment) => {
+                                    const commentTime = new Date(comment.fechaInspeccion ?? comment.createdAt).getTime();
+                                    const rawLeft = ((commentTime - activityStart) / duration) * 100;
+                                    const left = Math.max(0, Math.min(100, rawLeft));
+                                    const bucket = Math.round(left);
+                                    const count = bucketCounts.get(bucket) ?? 0;
+                                    bucketCounts.set(bucket, count + 1);
+                                    const yOffset = (count % 3) * 18 - 18;
+                                    const isSelected = selectedCommentId === comment.id;
+
+                                    return (
+                                      <button
+                                        key={comment.id}
+                                        className={getSeverityPointClasses(comment.severidad, isSelected)}
+                                        style={{ left: `${left}%`, marginTop: yOffset }}
+                                        title="Abrir reporte fiscalizador"
+                                        onClick={(e) => { e.stopPropagation(); setSelectedCommentId(isSelected ? null : comment.id); }}
+                                      >
+                                        <span className="text-[10px] font-black leading-none text-white">{getSeverityGlyph(comment.severidad)}</span>
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+
+                                {canComment && (
+                                  <p className="text-[10px] text-slate-400">
+                                    {selectedFiscClickDate
+                                      ? `Fecha de inspección seleccionada: ${selectedFiscClickDate.toLocaleDateString()} — completa el formulario abajo`
+                                      : "Haz clic en el timeline para seleccionar la fecha de inspección"}
+                                  </p>
+                                )}
                               </div>
                             </div>
-                          </div>
-                        );
-                      })()}
+                          );
+                        })()}
+                      </div>
+
+                      {canComment && (
+                        <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                          <p className="mb-1 text-xs font-semibold text-slate-700">Registrar fiscalización</p>
+                          <CommentForm
+                            onSubmit={async (texto, severidad, file) => {
+                              await enviarComentario(selectedActivity.id, texto, severidad, file, selectedFiscClickDate);
+                              setSelectedFiscClickDate(undefined);
+                            }}
+                          />
+                        </div>
+                      )}
                     </div>
                   </div>
                 </motion.div>
