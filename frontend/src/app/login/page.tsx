@@ -1104,16 +1104,6 @@ export default function LoginPage() {
                                 >
                                   <div className="absolute left-2 right-2 top-1/2 h-2 -translate-y-1/2 rounded-full bg-slate-200" />
 
-                                  {selectedFiscClickDate && canComment && (() => {
-                                    const markerLeft = Math.max(0, Math.min(100, ((selectedFiscClickDate.getTime() - activityStart) / duration) * 100));
-                                    return (
-                                      <span
-                                        className="absolute top-0 h-full w-0.5 bg-brand-600/60"
-                                        style={{ left: `${markerLeft}%` }}
-                                      />
-                                    );
-                                  })()}
-
                                   {comments.map((comment) => {
                                     const commentTime = new Date(comment.fechaInspeccion ?? comment.createdAt).getTime();
                                     const rawLeft = ((commentTime - activityStart) / duration) * 100;
@@ -1140,9 +1130,7 @@ export default function LoginPage() {
 
                                 {canComment && (
                                   <p className="text-[10px] text-slate-400">
-                                    {selectedFiscClickDate
-                                      ? `Fecha de inspección seleccionada: ${selectedFiscClickDate.toLocaleDateString()} — completa el formulario abajo`
-                                      : "Haz clic en el timeline para seleccionar la fecha de inspección"}
+                                    Haz clic en el timeline para registrar una fiscalización en esa fecha
                                   </p>
                                 )}
                               </div>
@@ -1150,19 +1138,45 @@ export default function LoginPage() {
                           );
                         })()}
                       </div>
-
-                      {canComment && (
-                        <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-                          <p className="mb-1 text-xs font-semibold text-slate-700">Registrar fiscalización</p>
-                          <CommentForm
-                            onSubmit={async (texto, severidad, file) => {
-                              await enviarComentario(selectedActivity.id, texto, severidad, file, selectedFiscClickDate);
-                              setSelectedFiscClickDate(undefined);
-                            }}
-                          />
-                        </div>
-                      )}
                     </div>
+                  </div>
+                </motion.div>
+              </div>
+            )}
+
+            {selectedFiscClickDate && selectedActivity && canComment && (
+              <div
+                className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/70 p-4"
+                onClick={() => setSelectedFiscClickDate(undefined)}
+              >
+                <motion.div
+                  initial={{ opacity: 0, y: 10, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  transition={{ duration: 0.18 }}
+                  className="w-full max-w-md overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+                    <div>
+                      <p className="text-sm font-semibold text-slate-800">Registrar fiscalización</p>
+                      <p className="text-[11px] text-slate-500">
+                        {selectedActivity.nombre} · {selectedFiscClickDate.toLocaleDateString()}
+                      </p>
+                    </div>
+                    <button
+                      className="rounded-full border border-slate-200 px-2 py-1 text-xs text-slate-600"
+                      onClick={() => setSelectedFiscClickDate(undefined)}
+                    >
+                      Cerrar
+                    </button>
+                  </div>
+                  <div className="px-4 py-4">
+                    <CommentForm
+                      onSubmit={async (texto, severidad, file) => {
+                        await enviarComentario(selectedActivity.id, texto, severidad, file, selectedFiscClickDate);
+                        setSelectedFiscClickDate(undefined);
+                      }}
+                    />
                   </div>
                 </motion.div>
               </div>
