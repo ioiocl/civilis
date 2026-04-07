@@ -86,6 +86,7 @@ build/
 dist/
 target/
 out/
+.next/
 
 # -----------------------
 # DOCKER
