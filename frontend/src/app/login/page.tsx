@@ -1,11 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
+import QRCode from "react-qr-code";
 import type { Actividad, Comentario, Hito, Obra, ObraGeneral, UserSession } from "../../types/index.js";
 import { apiFetch, API_BASE } from "../../lib/api";
 
 export default function LoginPage() {
+  const searchParams = useSearchParams();
   const [session, setSession] = useState<UserSession | null>(null);
   const [email, setEmail] = useState("ciudadano@obratrack.local");
   const [password, setPassword] = useState("123456");
@@ -56,6 +59,9 @@ export default function LoginPage() {
     orden: "",
   });
 
+  const [qrCopied, setQrCopied] = useState(false);
+  const qrRef = useRef<HTMLDivElement>(null);
+
   const canComment = session?.user.rol === "FISCALIZADOR" || session?.user.rol === "ADMIN";
   const canCreateObra = session?.user.rol === "ADMIN";
 
@@ -100,6 +106,10 @@ export default function LoginPage() {
     setActividadesByHito({});
     setComentariosByActividad({});
     setObraSearch("");
+    const obraParam = searchParams.get("obra");
+    if (obraParam && dataObras.some((o) => o.id === obraParam)) {
+      await loadObraDetail(obraParam, dataObras, data.token);
+    }
   }
 
   async function crearHito() {
@@ -375,6 +385,38 @@ export default function LoginPage() {
   const presupuestoM = selectedObraGeneral ? `$${(selectedObraGeneral.valor / 1_000_000).toFixed(1)}M` : "-";
   const responsibleEntity = selectedObraGeneral?.actores[0]?.organizacion ?? selectedObraGeneral?.encargado ?? "Sin definir";
   const selectedComment = orderedComments.find((comment) => comment.id === selectedCommentId) ?? null;
+  const obraShareUrl = selectedObra ? `https://civilis.cl/?obra=${selectedObra}` : "";
+
+  function handleCopyObraLink() {
+    if (!obraShareUrl) return;
+    void navigator.clipboard.writeText(obraShareUrl).then(() => {
+      setQrCopied(true);
+      setTimeout(() => setQrCopied(false), 2000);
+    });
+  }
+
+  function handleDownloadQR() {
+    const svg = qrRef.current?.querySelector("svg");
+    if (!svg) return;
+    const svgData = new XMLSerializer().serializeToString(svg);
+    const canvas = document.createElement("canvas");
+    const size = 256;
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    const img = new Image();
+    img.onload = () => {
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, size, size);
+      ctx.drawImage(img, 0, 0, size, size);
+      const link = document.createElement("a");
+      link.download = `qr-obra-${selectedObra}.png`;
+      link.href = canvas.toDataURL("image/png");
+      link.click();
+    };
+    img.src = `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(svgData)))}`;
+  }
 
   const selectedActivity = useMemo(() => {
     if (!selectedActivityId) return null;
@@ -812,6 +854,39 @@ export default function LoginPage() {
                       <p className="mt-1 text-sm font-semibold text-slate-800">{responsibleEntity}</p>
                     </div>
                   </div>
+
+                  {obraShareUrl && (
+                    <div className="border-t border-slate-100 px-4 pb-4 pt-3">
+                      <p className="mb-3 text-[11px] uppercase tracking-wide text-slate-500">Acceso directo a esta obra</p>
+                      <div className="flex flex-col items-center gap-3 sm:flex-row sm:items-start">
+                        <div ref={qrRef} className="shrink-0 rounded-xl border border-slate-200 bg-white p-3">
+                          <QRCode value={obraShareUrl} size={120} />
+                        </div>
+                        <div className="flex flex-1 flex-col gap-2">
+                          <p className="text-xs text-slate-600">Escanea el QR para ir directamente a esta obra en <span className="font-semibold">civilis.cl</span></p>
+                          <div className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5">
+                            <p className="flex-1 truncate font-mono text-[10px] text-slate-500">{obraShareUrl}</p>
+                          </div>
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={handleCopyObraLink}
+                              className="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                            >
+                              {qrCopied ? "¡Copiado!" : "Copiar enlace"}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleDownloadQR}
+                              className="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                            >
+                              Descargar QR
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </motion.div>
               </div>
             )}
