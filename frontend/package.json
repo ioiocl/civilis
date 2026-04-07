@@ -12,7 +12,8 @@
     "framer-motion": "^12.4.7",
     "next": "15.2.1",
     "react": "19.0.0",
-    "react-dom": "19.0.0"
+    "react-dom": "19.0.0",
+    "react-qr-code": "^2.0.15"
   },
   "devDependencies": {
     "@types/node": "^22.13.13",

@@ -6,8 +6,6 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: obratrack
-    ports:
-      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
@@ -59,7 +57,7 @@ services:
     environment:
       NEXT_PUBLIC_API_BASE_URL: http://45.7.230.104:3000
     ports:
-      - "8080:8080"
+      - "80:80"
     volumes:
       - ./frontend:/app
       - /app/node_modules

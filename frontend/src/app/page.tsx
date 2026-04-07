@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import type { Actividad, Comentario, Hito, Obra, UserSession } from "../types/index.js";
 import { apiFetch } from "../lib/api";
 
 export default function HomePage() {
+  const searchParams = useSearchParams();
   const [obras, setObras] = useState<Obra[]>([]);
   const [selectedObraId, setSelectedObraId] = useState<string>("");
   const [isLoading, setIsLoading] = useState(true);
@@ -24,16 +26,16 @@ export default function HomePage() {
         setSession(session);
         const data = await apiFetch<Obra[]>("/obras", {}, session.token);
         setObras(data);
-        if (data.length > 0) {
-          setSelectedObraId(data[0].id);
-        }
+        const obraParam = searchParams.get("obra");
+        const initialObra = obraParam && data.some((o) => o.id === obraParam) ? obraParam : data[0]?.id ?? "";
+        setSelectedObraId(initialObra);
       } finally {
         setIsLoading(false);
       }
     }
 
     loadPublicView();
-  }, []);
+  }, [searchParams]);
 
   useEffect(() => {
     async function loadObraGantt(obraId: string) {
