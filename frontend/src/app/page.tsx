@@ -573,7 +573,7 @@ export default function HomePage() {
         </section>
       )}
       </section>
-d
+
       {selectedComment && (
         <div
           className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/70 p-4"
