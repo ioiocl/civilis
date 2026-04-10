@@ -30,6 +30,9 @@ export default function HomePage() {
   const [respuestaTexto, setRespuestaTexto] = useState("");
   const [showRespuestaForm, setShowRespuestaForm] = useState(false);
   const [showObraMore, setShowObraMore] = useState(false);
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const [showContacto, setShowContacto] = useState(false);
+  const [showAcercaDe, setShowAcercaDe] = useState(false);
 
   const canComment = session?.user.rol === "FISCALIZADOR";
   const isReadOnly = session?.user.rol === "CIUDADANO";
@@ -265,82 +268,134 @@ export default function HomePage() {
             </div>
           </div>
           
-          {session && session.user.rol !== "CIUDADANO" ? (
-            <div className="relative">
-              <button 
-                className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-sm hover:bg-slate-50"
-                onClick={() => setShowUserMenu(!showUserMenu)}
-              >
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-900 text-white font-semibold text-xs">
-                  {session.user.nombre.charAt(0).toUpperCase()}
-                </div>
-                <span className="hidden sm:inline">{session.user.nombre}</span>
-                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
+          <div className="relative">
+            <button 
+              className="flex items-center gap-2 rounded-full border border-slate-200 bg-white p-2 hover:bg-slate-50"
+              onClick={() => setShowMobileMenu(!showMobileMenu)}
+            >
+              <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
 
-              {showUserMenu && (
-                <div className="absolute right-0 top-full mt-2 w-64 rounded-2xl border border-slate-200 bg-white shadow-lg z-50">
-                  <div className="border-b border-slate-100 px-4 py-3">
-                    <p className="text-sm font-semibold text-slate-900">{session.user.nombre}</p>
-                    <p className="text-xs text-slate-500">{session.user.email}</p>
-                    <p className="mt-1 inline-block rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-slate-600">
-                      {session.user.rol}
-                    </p>
-                  </div>
+            {showMobileMenu && (
+              <div className="absolute right-0 top-full mt-2 w-64 rounded-2xl border border-slate-200 bg-white shadow-lg z-50">
+                {session && session.user.rol !== "CIUDADANO" && (
+                  <>
+                    <div className="border-b border-slate-100 px-4 py-3">
+                      <p className="text-sm font-semibold text-slate-900">{session.user.nombre}</p>
+                      <p className="text-xs text-slate-500">{session.user.email}</p>
+                      <p className="mt-1 inline-block rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-slate-600">
+                        {session.user.rol}
+                      </p>
+                    </div>
 
-                  <div className="p-2">
-                    <button
-                      className="w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-slate-50 flex items-center gap-2"
-                      onClick={() => {
-                        setShowNotifications(true);
-                        setShowUserMenu(false);
-                      }}
-                    >
-                      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                      </svg>
-                      <span>Notificaciones</span>
-                      {notificaciones.filter(n => !n.leida).length > 0 && (
-                        <span className="ml-auto rounded-full bg-red-500 px-2 py-0.5 text-[10px] font-semibold text-white">
-                          {notificaciones.filter(n => !n.leida).length}
-                        </span>
+                    <div className="p-2">
+                      <button
+                        className="w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-slate-50 flex items-center gap-2"
+                        onClick={() => {
+                          setShowNotifications(true);
+                          setShowMobileMenu(false);
+                        }}
+                      >
+                        <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                        </svg>
+                        <span>Notificaciones</span>
+                        {notificaciones.filter(n => !n.leida).length > 0 && (
+                          <span className="ml-auto rounded-full bg-red-500 px-2 py-0.5 text-[10px] font-semibold text-white">
+                            {notificaciones.filter(n => !n.leida).length}
+                          </span>
+                        )}
+                      </button>
+
+                      {session.user.rol === "ADMIN" && (
+                        <button
+                          className="w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-slate-50 flex items-center gap-2"
+                          onClick={() => window.location.href = "/login"}
+                        >
+                          <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                          </svg>
+                          <span>Mis Obras</span>
+                        </button>
                       )}
-                    </button>
 
-                    {session.user.rol === "ADMIN" && (
+                      {session.user.rol === "FISCALIZADOR" && (
+                        <button
+                          className="w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-slate-50 flex items-center gap-2"
+                          onClick={() => window.location.href = "/login"}
+                        >
+                          <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          </svg>
+                          <span>Mis Fiscalizaciones</span>
+                        </button>
+                      )}
+                    </div>
+                    <div className="border-t border-slate-100"></div>
+                  </>
+                )}
+
+                <div className="p-2">
+                  {(!session || session.user.rol === "CIUDADANO") && (
+                    <>
                       <button
                         className="w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-slate-50 flex items-center gap-2"
                         onClick={() => window.location.href = "/login"}
                       >
                         <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
                         </svg>
-                        <span>Mis Obras</span>
+                        <span>Login</span>
                       </button>
-                    )}
-
-                    {session.user.rol === "FISCALIZADOR" && (
                       <button
                         className="w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-slate-50 flex items-center gap-2"
                         onClick={() => window.location.href = "/login"}
                       >
                         <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
                         </svg>
-                        <span>Mis Fiscalizaciones</span>
+                        <span>Registrarse</span>
                       </button>
-                    )}
-                  </div>
+                    </>
+                  )}
 
+                  <button
+                    className="w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-slate-50 flex items-center gap-2"
+                    onClick={() => {
+                      setShowAcercaDe(true);
+                      setShowMobileMenu(false);
+                    }}
+                  >
+                    <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span>Acerca de</span>
+                  </button>
+
+                  <button
+                    className="w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-slate-50 flex items-center gap-2"
+                    onClick={() => {
+                      setShowContacto(true);
+                      setShowMobileMenu(false);
+                    }}
+                  >
+                    <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
+                    <span>Contacto</span>
+                  </button>
+                </div>
+
+                {session && session.user.rol !== "CIUDADANO" && (
                   <div className="border-t border-slate-100 p-2">
                     <button
                       className="w-full rounded-lg px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
                       onClick={() => {
                         localStorage.removeItem("civilis_session");
                         setSession(null);
-                        setShowUserMenu(false);
+                        setShowMobileMenu(false);
                         window.location.href = "/";
                       }}
                     >
@@ -350,19 +405,10 @@ export default function HomePage() {
                       <span>Cerrar Sesión</span>
                     </button>
                   </div>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="flex gap-2">
-              <button className="rounded border border-slate-200 px-4 py-2 text-sm hover:bg-slate-50" onClick={() => window.location.href = "/login"}>
-                Registrarse
-              </button>
-              <button className="rounded bg-slate-900 px-4 py-2 text-sm text-white hover:bg-slate-800" onClick={() => window.location.href = "/login"}>
-                Login
-              </button>
-            </div>
-          )}
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </header>
 
@@ -1000,6 +1046,101 @@ export default function HomePage() {
                 </div>
               </div>
             )}
+          </motion.div>
+        </div>
+      )}
+
+      {showAcercaDe && (
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/70 p-4"
+          onClick={() => setShowAcercaDe(false)}
+        >
+          <motion.div
+            initial={{ opacity: 0, y: 10, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ duration: 0.18 }}
+            className="w-full max-w-2xl overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
+              <h2 className="text-xl font-bold text-slate-900">Acerca de Civilis</h2>
+              <button 
+                className="rounded-full p-1 hover:bg-slate-100"
+                onClick={() => setShowAcercaDe(false)}
+              >
+                <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="max-h-[70vh] overflow-y-auto px-6 py-4">
+              <div className="space-y-4 text-sm text-slate-700 leading-relaxed">
+                <p>
+                  Civilis es una plataforma diseñada para fortalecer la transparencia y la participación ciudadana en proyectos de infraestructura y obras comunitarias, tales como plazas, canchas, escenarios y otras iniciativas de interés público o privado.
+                </p>
+                <p>
+                  A través de esta herramienta, los ciudadanos pueden visualizar de manera clara y ordenada los hitos de cada obra, incluyendo su planificación, avances y plazos comprometidos. Esto permite hacer un seguimiento continuo del progreso y verificar que se cumplan los acuerdos establecidos.
+                </p>
+                <p>
+                  Además, la plataforma fomenta la fiscalización ciudadana, brindando la posibilidad de reportar observaciones, compartir información y contribuir activamente al control social de los proyectos. De este modo, se promueve una gestión más transparente, responsable y alineada con las necesidades de la comunidad.
+                </p>
+                <p>
+                  Nuestro objetivo es acercar la información a las personas, facilitar la rendición de cuentas y fortalecer la confianza entre instituciones, empresas y ciudadanos, asegurando que cada proyecto genere un verdadero beneficio para la comunidad.
+                </p>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {showContacto && (
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/70 p-4"
+          onClick={() => setShowContacto(false)}
+        >
+          <motion.div
+            initial={{ opacity: 0, y: 10, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ duration: 0.18 }}
+            className="w-full max-w-md overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
+              <h2 className="text-xl font-bold text-slate-900">Contacto</h2>
+              <button 
+                className="rounded-full p-1 hover:bg-slate-100"
+                onClick={() => setShowContacto(false)}
+              >
+                <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="px-6 py-4">
+              <div className="space-y-4">
+                <div className="flex items-start gap-3">
+                  <svg className="h-6 w-6 text-orange-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  <div>
+                    <p className="font-semibold text-slate-900">Dirección</p>
+                    <p className="text-sm text-slate-600">Abtao #576, Cerro Concepción<br />Valparaíso, Chile</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <svg className="h-6 w-6 text-green-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                  </svg>
+                  <div>
+                    <p className="font-semibold text-slate-900">WhatsApp</p>
+                    <a href="https://wa.me/56964484676" target="_blank" rel="noopener noreferrer" className="text-sm text-green-600 hover:underline">
+                      +56 9 6448 4676
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </div>
           </motion.div>
         </div>
       )}
