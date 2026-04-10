@@ -55,7 +55,7 @@ services:
     depends_on:
       - backend
     environment:
-      NEXT_PUBLIC_API_BASE_URL: https://civilis.cl
+      NEXT_PUBLIC_API_BASE_URL: http://45.7.230.104:3000
     ports:
       - "80:80"
 
