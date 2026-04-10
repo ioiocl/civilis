@@ -19,7 +19,7 @@ docker compose up --build
 
 Servicios:
 
-- Frontend: `http://localhost:5173`
+- Frontend: `http://localhost:8081`
 - Backend: `http://localhost:3000`
 - MinIO Console: `http://localhost:9001` (`minioadmin` / `minioadmin`)
 - Postgres: `localhost:5432`

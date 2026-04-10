@@ -86,4 +86,26 @@ export interface Comentario {
   fechaInspeccion: string | null;
   createdAt: string;
   evidencias: Evidencia[];
+  respuestas?: RespuestaComentario[];
+}
+
+export interface RespuestaComentario {
+  id: string;
+  comentarioId: string;
+  usuarioId: string;
+  usuarioNombre: string;
+  texto: string;
+  createdAt: string;
+}
+
+export interface Notificacion {
+  id: string;
+  usuarioId: string;
+  tipo: "NUEVO_COMENTARIO" | "NUEVA_RESPUESTA";
+  mensaje: string;
+  obraId: string;
+  obraNombre: string;
+  comentarioId?: string;
+  leida: boolean;
+  createdAt: string;
 }
