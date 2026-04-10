@@ -268,18 +268,23 @@ export default function HomePage() {
             </div>
           </div>
           
-          <div className="relative">
-            <button 
-              className="flex items-center gap-2 rounded-full border border-slate-200 bg-white p-2 hover:bg-slate-50"
-              onClick={() => setShowMobileMenu(!showMobileMenu)}
-            >
-              <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
-            </button>
+          {session && session.user.rol !== "CIUDADANO" ? (
+            <div className="relative">
+              <button 
+                className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-sm hover:bg-slate-50"
+                onClick={() => setShowMobileMenu(!showMobileMenu)}
+              >
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-900 text-white font-semibold text-xs">
+                  {session.user.nombre.charAt(0).toUpperCase()}
+                </div>
+                <span className="hidden sm:inline">{session.user.nombre}</span>
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
 
-            {showMobileMenu && (
-              <div className="absolute right-0 top-full mt-2 w-64 rounded-2xl border border-slate-200 bg-white shadow-lg z-50">
+              {showMobileMenu && (
+                <div className="absolute right-0 top-full mt-2 w-64 rounded-2xl border border-slate-200 bg-white shadow-lg z-[100]">
                 {session && session.user.rol !== "CIUDADANO" && (
                   <>
                     <div className="border-b border-slate-100 px-4 py-3">
@@ -408,7 +413,109 @@ export default function HomePage() {
                 )}
               </div>
             )}
-          </div>
+            </div>
+          ) : (
+            <>
+              {/* Desktop: Botones tradicionales */}
+              <div className="hidden md:flex gap-2 items-center">
+                <button 
+                  className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm hover:bg-slate-50 flex items-center gap-2"
+                  onClick={() => {
+                    setShowAcercaDe(true);
+                  }}
+                >
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span>Acerca de</span>
+                </button>
+                <button 
+                  className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm hover:bg-slate-50 flex items-center gap-2"
+                  onClick={() => {
+                    setShowContacto(true);
+                  }}
+                >
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                  </svg>
+                  <span>Contacto</span>
+                </button>
+                <button 
+                  className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm hover:bg-slate-50"
+                  onClick={() => window.location.href = "/login"}
+                >
+                  Registrarse
+                </button>
+                <button 
+                  className="rounded-lg bg-slate-900 px-4 py-2 text-sm text-white hover:bg-slate-800"
+                  onClick={() => window.location.href = "/login"}
+                >
+                  Login
+                </button>
+              </div>
+
+              {/* Mobile: Menú hamburguesa */}
+              <div className="md:hidden relative">
+                <button 
+                  className="flex items-center gap-2 rounded-full border border-slate-200 bg-white p-2 hover:bg-slate-50"
+                  onClick={() => setShowMobileMenu(!showMobileMenu)}
+                >
+                  <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                  </svg>
+                </button>
+
+                {showMobileMenu && (
+                  <div className="absolute right-0 top-full mt-2 w-64 rounded-2xl border border-slate-200 bg-white shadow-lg z-[100]">
+                    <div className="p-2">
+                      <button
+                        className="w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-slate-50 flex items-center gap-2"
+                        onClick={() => window.location.href = "/login"}
+                      >
+                        <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+                        </svg>
+                        <span>Login</span>
+                      </button>
+                      <button
+                        className="w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-slate-50 flex items-center gap-2"
+                        onClick={() => window.location.href = "/login"}
+                      >
+                        <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                        </svg>
+                        <span>Registrarse</span>
+                      </button>
+                      <button
+                        className="w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-slate-50 flex items-center gap-2"
+                        onClick={() => {
+                          setShowAcercaDe(true);
+                          setShowMobileMenu(false);
+                        }}
+                      >
+                        <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span>Acerca de</span>
+                      </button>
+                      <button
+                        className="w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-slate-50 flex items-center gap-2"
+                        onClick={() => {
+                          setShowContacto(true);
+                          setShowMobileMenu(false);
+                        }}
+                      >
+                        <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                        </svg>
+                        <span>Contacto</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
         </div>
       </header>
 
