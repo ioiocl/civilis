@@ -58,6 +58,9 @@ services:
       NEXT_PUBLIC_API_BASE_URL: http://45.7.230.104:3000
     ports:
       - "80:80"
+    volumes:
+      - ./frontend/src:/app/src
+      - ./frontend/public:/app/public
 
 volumes:
   postgres_data:
