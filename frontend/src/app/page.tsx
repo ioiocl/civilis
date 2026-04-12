@@ -765,6 +765,26 @@ export default function HomePage() {
                 <p className="mt-2">{selectedComment.texto}</p>
               </div>
 
+              {selectedComment.txSignature && (
+                <div className="border-t border-slate-100 pt-3">
+                  <p className="text-xs font-semibold text-slate-600 mb-1">Transacción Blockchain</p>
+                  <a
+                    href={`https://explorer.solana.com/tx/${selectedComment.txSignature}?cluster=devnet`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="group flex items-center gap-2 rounded-lg bg-purple-50 px-3 py-2 hover:bg-purple-100 transition-colors"
+                  >
+                    <svg className="h-4 w-4 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                    </svg>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[10px] font-mono text-purple-900 truncate">{selectedComment.txSignature}</p>
+                      <p className="text-[9px] text-purple-600 group-hover:underline">Ver en Solana Explorer →</p>
+                    </div>
+                  </a>
+                </div>
+              )}
+
               {selectedComment.respuestas && selectedComment.respuestas.length > 0 && (
                 <div className="border-t border-slate-100 pt-3">
                   <p className="text-xs font-semibold text-slate-600 mb-2">Respuestas ({selectedComment.respuestas.length})</p>
