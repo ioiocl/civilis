@@ -658,7 +658,7 @@ export default function HomePage() {
                         </button>
 
                         {isExpanded && (
-                          <div className="space-y-2">
+                          <div className="relative space-y-2 ml-4 pl-3 border-l-2 border-orange-500">
                             {actividades.map((actividad) => {
                               const start = new Date(actividad.fechaInicio).getTime();
                               const end = new Date(actividad.fechaFin).getTime();
