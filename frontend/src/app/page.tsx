@@ -625,7 +625,11 @@ export default function HomePage() {
                       <motion.div key={hito.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.04 }}>
                         <button
                           type="button"
-                          className="mb-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-left hover:bg-slate-50"
+                          className={`mb-2 w-full rounded-xl border px-3 py-2 text-left transition-colors ${
+                            isExpanded 
+                              ? "border-blue-700 bg-blue-700 hover:bg-blue-800" 
+                              : "border-slate-200 bg-white hover:bg-slate-50"
+                          }`}
                           onClick={() => {
                             setExpandedHitos((prev) => {
                               const next = new Set(prev);
@@ -637,13 +641,17 @@ export default function HomePage() {
                         >
                           <div className="flex items-start justify-between gap-3">
                             <div>
-                              <p className="text-sm font-semibold text-slate-800">{hito.nombre}</p>
-                              <p className="mt-0.5 text-[11px] text-slate-500">{hito.descripcion}</p>
-                              <p className="mt-1 text-[10px] uppercase tracking-wide text-slate-400">
+                              <p className={`text-sm font-semibold ${isExpanded ? "text-white" : "text-slate-800"}`}>{hito.nombre}</p>
+                              <p className={`mt-0.5 text-[11px] ${isExpanded ? "text-blue-100" : "text-slate-500"}`}>{hito.descripcion}</p>
+                              <p className={`mt-1 text-[10px] uppercase tracking-wide ${isExpanded ? "text-blue-200" : "text-slate-400"}`}>
                                 {hito.estado.replace("_", " ")} · {new Date(hito.fechaInicio).toLocaleDateString()} - {new Date(hito.fechaFin).toLocaleDateString()}
                               </p>
                             </div>
-                            <div className="shrink-0 rounded-full border border-slate-200 bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-600">
+                            <div className={`shrink-0 rounded-full border px-2 py-1 text-[10px] font-semibold uppercase tracking-wide ${
+                              isExpanded 
+                                ? "border-blue-500 bg-blue-600 text-white" 
+                                : "border-slate-200 bg-white text-slate-600"
+                            }`}>
                               {isExpanded ? "Ocultar" : "VER"} ({actividades.length})
                             </div>
                           </div>
