@@ -532,7 +532,7 @@ export default function HomePage() {
               />
 
               {filteredObras.length > 0 && (
-                <div className="absolute left-0 right-0 top-full z-20 mt-2 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg">
+                <div className="absolute left-0 right-0 top-full z-10 mt-2 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg">
                   <div className="max-h-80 overflow-y-auto p-1">
                     {filteredObras.map((obra) => (
                       <button
