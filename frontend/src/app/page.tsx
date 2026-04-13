@@ -248,7 +248,7 @@ export default function HomePage() {
 
   return (
     <main className="mx-auto max-w-[1240px] space-y-5 p-4 md:p-6">
-      <header className="rounded-3xl border border-slate-200 bg-white/90 p-5 shadow-sm backdrop-blur">
+      <header className="relative z-50 rounded-3xl border border-slate-200 bg-white/90 p-5 shadow-sm backdrop-blur">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <img 
@@ -519,7 +519,7 @@ export default function HomePage() {
         </div>
       </header>
 
-      <section className="rounded-3xl border border-slate-200 bg-white p-3 shadow-sm">
+      <section className="relative z-10 rounded-3xl border border-slate-200 bg-white p-3 shadow-sm">
         <div className="rounded-2xl border border-sky-100 bg-[#f5fbfd] p-4">
           <div className="mx-auto w-full max-w-xl">
             <p className="text-center text-[11px] font-semibold uppercase tracking-wide text-slate-500">BUSCAR OBRA</p>
