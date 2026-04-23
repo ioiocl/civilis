@@ -1,14 +1,4 @@
 services:
-  postgres:
-    image: postgres:15
-    container_name: obratrack-postgres
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: obratrack
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-
   minio:
     image: minio/minio
     container_name: obratrack-minio
@@ -25,12 +15,13 @@ services:
   backend:
     build: ./backend
     container_name: obratrack-backend
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
-      - postgres
       - minio
     environment:
       PORT: 3000
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/obratrack?schema=public
+      DATABASE_URL: postgresql://postgres:postgres1@host.docker.internal:5432/obratrack?schema=public
       JWT_SECRET: supersecret
       MINIO_ENDPOINT: minio
       MINIO_PORT: 9000
@@ -57,11 +48,10 @@ services:
     environment:
       NEXT_PUBLIC_API_BASE_URL: http://45.7.230.104:3000
     ports:
-      - "80:80"
+      - "8080:8080"
     volumes:
       - ./frontend/src:/app/src
       - ./frontend/public:/app/public
 
 volumes:
-  postgres_data:
   minio_data:
