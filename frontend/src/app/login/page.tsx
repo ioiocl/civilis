@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import QRCode from "react-qr-code";
 import type { Actividad, Comentario, Hito, Obra, ObraGeneral, UserSession } from "../../types/index.js";
 import { apiFetch, API_BASE } from "../../lib/api";
 
 export default function LoginPage() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const [session, setSession] = useState<UserSession | null>(null);
   const [email, setEmail] = useState("ciudadano@obratrack.local");
@@ -25,24 +26,12 @@ export default function LoginPage() {
   const [selectedFiscClickDate, setSelectedFiscClickDate] = useState<Date | undefined>(undefined);
   const [expandedHitos, setExpandedHitos] = useState<Set<string>>(new Set());
   const [selectedActivityId, setSelectedActivityId] = useState<string | null>(null);
-  const [showCreateObra, setShowCreateObra] = useState(false);
-  const [isCreatingObra, setIsCreatingObra] = useState(false);
-  const [createObraError, setCreateObraError] = useState<string | null>(null);
   const [showCreateHito, setShowCreateHito] = useState(false);
   const [isCreatingHito, setIsCreatingHito] = useState(false);
   const [createHitoError, setCreateHitoError] = useState<string | null>(null);
   const [showCreateActividad, setShowCreateActividad] = useState(false);
   const [isCreatingActividad, setIsCreatingActividad] = useState(false);
   const [createActividadError, setCreateActividadError] = useState<string | null>(null);
-  const [obraForm, setObraForm] = useState({
-    nombre: "",
-    descripcion: "",
-    ubicacion: "",
-    encargado: "",
-    valor: "",
-    fechaInicio: "",
-    fechaFin: "",
-  });
   const [hitoForm, setHitoForm] = useState({
     nombre: "",
     descripcion: "",
@@ -62,7 +51,7 @@ export default function LoginPage() {
   const [qrCopied, setQrCopied] = useState(false);
   const qrRef = useRef<HTMLDivElement>(null);
 
-  const canComment = session?.user.rol === "FISCALIZADOR" || session?.user.rol === "ADMIN";
+  const canComment = session?.user.rol === "FISCALIZADOR";
   const canCreateObra = session?.user.rol === "ADMIN";
 
   function toFriendlyApiError(rawError: unknown): string {
@@ -211,6 +200,16 @@ export default function LoginPage() {
   }
 
   useEffect(() => {
+    const stored = localStorage.getItem("civilis_session");
+    if (stored) {
+      try {
+        const parsed: UserSession = JSON.parse(stored);
+        setSession(parsed);
+        apiFetch<Obra[]>("/obras", {}, parsed.token).then(setObras).catch(() => {});
+      } catch {
+        localStorage.removeItem("civilis_session");
+      }
+    }
     setIsBootstrapping(false);
   }, []);
 
@@ -260,7 +259,7 @@ export default function LoginPage() {
   }
 
   async function enviarComentario(actividadId: string, texto: string, severidad: "LEVE" | "MODERADO" | "GRAVE", file?: File | null, fechaInspeccion?: Date) {
-    if (!session || !texto) return;
+    if (!session || !texto || session.user.rol !== "FISCALIZADOR") return;
     const form = new FormData();
     form.append("texto", texto);
     form.append("tipo", "AVANCE");
@@ -281,56 +280,6 @@ export default function LoginPage() {
     }
 
     await loadObraDetail(selectedObra);
-  }
-
-  async function crearObra() {
-    if (!session || session.user.rol !== "ADMIN") return;
-
-    const valorNumerico = Number(obraForm.valor);
-    if (!obraForm.nombre || !obraForm.descripcion || !obraForm.ubicacion || !obraForm.encargado || !obraForm.fechaInicio || !obraForm.fechaFin || !Number.isFinite(valorNumerico) || valorNumerico <= 0) {
-      setCreateObraError("Completa todos los campos con datos válidos.");
-      return;
-    }
-
-    setIsCreatingObra(true);
-    setCreateObraError(null);
-
-    try {
-      const nuevaObra = await apiFetch<Obra>(
-        "/obras",
-        {
-          method: "POST",
-          body: JSON.stringify({
-            nombre: obraForm.nombre,
-            descripcion: obraForm.descripcion,
-            ubicacion: obraForm.ubicacion,
-            encargado: obraForm.encargado,
-            valor: valorNumerico,
-            fechaInicio: new Date(`${obraForm.fechaInicio}T00:00:00`).toISOString(),
-            fechaFin: new Date(`${obraForm.fechaFin}T00:00:00`).toISOString(),
-          }),
-        },
-        session.token,
-      );
-
-      const dataObras = await apiFetch<Obra[]>("/obras", {}, session.token);
-      setObras(dataObras);
-      await loadObraDetail(nuevaObra.id, dataObras, session.token);
-      setObraForm({
-        nombre: "",
-        descripcion: "",
-        ubicacion: "",
-        encargado: "",
-        valor: "",
-        fechaInicio: "",
-        fechaFin: "",
-      });
-      setShowCreateObra(false);
-    } catch (error) {
-      setCreateObraError(error instanceof Error ? error.message : "No se pudo crear la obra.");
-    } finally {
-      setIsCreatingObra(false);
-    }
   }
 
   const selectedWork = useMemo(() => obras.find((o) => o.id === selectedObra), [obras, selectedObra]);
@@ -516,82 +465,18 @@ export default function LoginPage() {
               </p>
               <div className="flex gap-2">
                 {canCreateObra && (
-                  <button className="rounded border border-cyan-200 bg-cyan-50 px-4 py-2 text-cyan-800" onClick={() => setShowCreateObra((v) => !v)}>
-                    {showCreateObra ? "Cerrar formulario" : "Agregar obra"}
+                  <button
+                    className="rounded border border-cyan-200 bg-cyan-50 px-4 py-2 text-cyan-800"
+                    onClick={() => router.push("/nueva-obra")}
+                  >
+                    Agregar obra
                   </button>
                 )}
-                <button className="rounded bg-slate-900 px-4 py-2 text-white" onClick={loadObras}>
-                  Cargar obras
-                </button>
                 <button className="rounded border px-4 py-2" onClick={() => setSession(null)}>
                   Salir
                 </button>
               </div>
-            )}
             </div>
-
-            {canCreateObra && showCreateObra && (
-              <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                <p className="text-sm font-semibold text-slate-800">Nueva obra</p>
-                <div className="mt-3 grid gap-2 md:grid-cols-2">
-                  <input
-                    className="rounded border bg-white p-2 text-sm"
-                    placeholder="Nombre"
-                    value={obraForm.nombre}
-                    onChange={(e) => setObraForm((prev) => ({ ...prev, nombre: e.target.value }))}
-                  />
-                  <input
-                    className="rounded border bg-white p-2 text-sm"
-                    placeholder="Ubicación"
-                    value={obraForm.ubicacion}
-                    onChange={(e) => setObraForm((prev) => ({ ...prev, ubicacion: e.target.value }))}
-                  />
-                  <input
-                    className="rounded border bg-white p-2 text-sm"
-                    placeholder="Encargado"
-                    value={obraForm.encargado}
-                    onChange={(e) => setObraForm((prev) => ({ ...prev, encargado: e.target.value }))}
-                  />
-                  <input
-                    className="rounded border bg-white p-2 text-sm"
-                    placeholder="Valor (número)"
-                    type="number"
-                    min={1}
-                    value={obraForm.valor}
-                    onChange={(e) => setObraForm((prev) => ({ ...prev, valor: e.target.value }))}
-                  />
-                  <input
-                    className="rounded border bg-white p-2 text-sm"
-                    type="date"
-                    value={obraForm.fechaInicio}
-                    onChange={(e) => setObraForm((prev) => ({ ...prev, fechaInicio: e.target.value }))}
-                  />
-                  <input
-                    className="rounded border bg-white p-2 text-sm"
-                    type="date"
-                    value={obraForm.fechaFin}
-                    onChange={(e) => setObraForm((prev) => ({ ...prev, fechaFin: e.target.value }))}
-                  />
-                  <textarea
-                    className="md:col-span-2 rounded border bg-white p-2 text-sm"
-                    placeholder="Descripción"
-                    rows={3}
-                    value={obraForm.descripcion}
-                    onChange={(e) => setObraForm((prev) => ({ ...prev, descripcion: e.target.value }))}
-                  />
-                </div>
-                {createObraError && <p className="mt-2 text-xs text-rose-600">{createObraError}</p>}
-                <div className="mt-3 flex justify-end">
-                  <button
-                    className="rounded bg-brand-700 px-4 py-2 text-sm text-white disabled:opacity-60"
-                    onClick={crearObra}
-                    disabled={isCreatingObra}
-                  >
-                    {isCreatingObra ? "Guardando..." : "Crear obra"}
-                  </button>
-                </div>
-              </div>
-            )}
 
             {canCreateObra && selectedObra && (
               <div className="mt-4 grid gap-3 md:grid-cols-2">
@@ -1273,6 +1158,8 @@ export default function LoginPage() {
           </section>
         </>
       )}
+
+
     </main>
   );
 }

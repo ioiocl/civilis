@@ -1,0 +1,27 @@
+tipo,nombre,descripcion,ubicacion,encargado,valor,fecha_inicio,fecha_fin,orden
+OBRA,Construcción Puente Norte,"Construcción de puente vehicular de 60m sobre río Esmeraldas",Av. de la Republica y Río Esmeraldas,Juan Pérez Mora,1500000,2024-01-15,2024-12-31,
+HITO,Estudios y Diseño,"Levantamiento topográfico, estudio de suelos y diseño estructural",,,,2024-01-15,2024-03-31,1
+ACTIVIDAD,Levantamiento topográfico,Estudio del terreno y curvas de nivel,,,,2024-01-15,2024-01-31,1
+ACTIVIDAD,Estudio de suelos,Análisis geotécnico y capacidad portante,,,,2024-02-01,2024-02-28,2
+ACTIVIDAD,Diseño estructural,Elaboración de planos y memorias técnicas,,,,2024-03-01,2024-03-31,3
+HITO,Obra Civil,"Construcción de cimentación, pilas y tablero",,,,2024-04-01,2024-10-31,2
+ACTIVIDAD,Excavación y cimentación,Excavación y hormigonado de fundaciones,,,,2024-04-01,2024-05-31,1
+ACTIVIDAD,Construcción de pilas,Levantamiento de pilas y estribos de hormigón,,,,2024-06-01,2024-08-31,2
+ACTIVIDAD,Montaje de tablero,Instalación de vigas metálicas y losa de hormigón,,,,2024-09-01,2024-10-31,3
+HITO,Acabados y Entrega,"Barandas, señalética, pruebas de carga y entrega",,,,2024-11-01,2024-12-31,3
+ACTIVIDAD,Instalación de barandas,Montaje de barandas metálicas de seguridad,,,,2024-11-01,2024-11-15,1
+ACTIVIDAD,Señalética vial,Demarcación horizontal y vertical,,,,2024-11-16,2024-11-30,2
+ACTIVIDAD,Pruebas de carga,Pruebas de resistencia y certificación,,,,2024-12-01,2024-12-15,3
+ACTIVIDAD,Entrega oficial,Acta de entrega recepción provisional,,,,2024-12-16,2024-12-31,4
+OBRA,Pavimentación Sector Sur,"Repavimentación de 5 km de calles en el sector sur de la ciudad",Calle 5 de Junio entre Av. Olmedo y Av. Kennedy,María López Ruiz,820000,2024-03-01,2024-09-30,
+HITO,Preparación de la vía,Fresado del asfalto existente y preparación de la base,,,,2024-03-01,2024-04-30,1
+ACTIVIDAD,Fresado de asfalto,Retiro mecánico del asfalto deteriorado,,,,2024-03-01,2024-03-31,1
+ACTIVIDAD,Reconformación de base,Nivelación y compactación de la subrasante,,,,2024-04-01,2024-04-30,2
+HITO,Pavimentación,"Colocación de base granular, imprimación y asfalto",,,,2024-05-01,2024-08-31,2
+ACTIVIDAD,Base granular,Tendido y compactación de material granular,,,,2024-05-01,2024-05-31,1
+ACTIVIDAD,Imprimación asfáltica,Aplicación de riego de liga sobre la base,,,,2024-06-01,2024-06-15,2
+ACTIVIDAD,Carpeta asfáltica,Tendido y compactación de asfalto en caliente,,,,2024-06-16,2024-08-31,3
+HITO,Señalética y Entrega,Demarcación vial y entrega de la obra,,,,2024-09-01,2024-09-30,3
+ACTIVIDAD,Demarcación horizontal,Pintura de líneas y pasos peatonales,,,,2024-09-01,2024-09-15,1
+ACTIVIDAD,Señalética vertical,Instalación de señales de tránsito,,,,2024-09-16,2024-09-25,2
+ACTIVIDAD,Entrega provisional,Acta de entrega y cierre administrativo,,,,2024-09-26,2024-09-30,3
