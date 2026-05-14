@@ -8,6 +8,8 @@ export interface CrearObraInput {
   valor: number;
   fechaInicio: Date;
   fechaFin: Date;
+  latitud?: number | null;
+  longitud?: number | null;
   creadoPor: string;
 }
 

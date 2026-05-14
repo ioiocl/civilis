@@ -3,6 +3,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
+import dynamic from "next/dynamic";
+
+const MapaObra = dynamic(() => import("../components/MapaObra"), { ssr: false });
 import QRCode from "react-qr-code";
 import type { Actividad, Comentario, Hito, Obra, ObraGeneral, UserSession, Notificacion, RespuestaComentario } from "../types/index.js";
 import { apiFetch, API_BASE } from "../lib/api";
@@ -33,6 +36,13 @@ export default function HomePage() {
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [showContacto, setShowContacto] = useState(false);
   const [showAcercaDe, setShowAcercaDe] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [showMapaObra, setShowMapaObra] = useState(false);
+  const [gpsSearching, setGpsSearching] = useState(false);
+  const [obrasNearby, setObrasNearby] = useState<Obra[] | null>(null);
+  const [actividadesFiscalizablesHoy, setActividadesFiscalizablesHoy] = useState<Array<{
+    id: string; nombre: string; hitoId: string; hitoNombre: string;
+  }>>([]);
 
   const canComment = session?.user.rol === "FISCALIZADOR";
   const isReadOnly = session?.user.rol === "CIUDADANO";
@@ -90,6 +100,12 @@ export default function HomePage() {
     const hitoData = await apiFetch<Hito[]>(`/obras/${obraId}/hitos`, {}, activeToken);
     setHitos(hitoData);
     const general = await apiFetch<ObraGeneral>(`/obras/${obraId}/general`, {}, activeToken);
+    try {
+      const fiscalizables = await apiFetch<Array<{ id: string; nombre: string; hitoId: string; hitoNombre: string }>>(`/obras/${obraId}/actividades/fiscalizables`, {}, activeToken);
+      setActividadesFiscalizablesHoy(fiscalizables);
+    } catch {
+      setActividadesFiscalizablesHoy([]);
+    }
     setSelectedObraGeneral(general);
 
     const actividadesMap: Record<string, Actividad[]> = {};
@@ -233,6 +249,8 @@ export default function HomePage() {
   }, [allActividades, selectedObra]);
 
   const ganttDurationMs = Math.max(1, ganttEnd.getTime() - ganttStart.getTime());
+  const todayGanttLeft = ((today.getTime() - ganttStart.getTime()) / ganttDurationMs) * 100;
+  const showTodayLine = selectedObra != null && selectedObra.estado !== "FINALIZADA" && todayGanttLeft > 0 && todayGanttLeft < 100;
   const timelineTicks = useMemo(() => {
     const divisions = 8;
     return Array.from({ length: divisions + 1 }, (_, idx) => {
@@ -507,14 +525,42 @@ export default function HomePage() {
           <div className="mx-auto w-full max-w-xl">
             <p className="text-center text-[11px] font-semibold uppercase tracking-wide text-slate-500">BUSCAR OBRA</p>
             <div className="relative mt-2">
-              <input
-                className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm shadow-sm outline-none focus:border-cyan-300 focus:ring-2 focus:ring-cyan-100"
-                placeholder="Escribe el nombre de una obra..."
-                value={obraSearch}
-                onChange={(e) => setObraSearch(e.target.value)}
-              />
+              <div className="flex gap-2">
+                <input
+                  className="flex-1 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm shadow-sm outline-none focus:border-cyan-300 focus:ring-2 focus:ring-cyan-100"
+                  placeholder="Escribe el nombre de una obra..."
+                  value={obraSearch}
+                  onChange={(e) => { setObraSearch(e.target.value); setShowSuggestions(true); setObrasNearby(null); }}
+                />
+                <button
+                  type="button"
+                  title="Buscar obras a 100m de mi ubicación"
+                  disabled={gpsSearching}
+                  className="shrink-0 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-lg shadow-sm hover:bg-slate-50 disabled:opacity-50"
+                  onClick={() => {
+                    setGpsSearching(true);
+                    navigator.geolocation.getCurrentPosition(
+                      async (pos) => {
+                        try {
+                          const { latitude: lat, longitude: lng } = pos.coords;
+                          const token = session?.token;
+                          const res = await apiFetch<Obra[]>(`/obras/cercanas?lat=${lat}&lng=${lng}`, {}, token ?? "");
+                          setObrasNearby(res);
+                          setShowSuggestions(false);
+                          setObraSearch("");
+                        } finally {
+                          setGpsSearching(false);
+                        }
+                      },
+                      () => setGpsSearching(false)
+                    );
+                  }}
+                >
+                  {gpsSearching ? "⏳" : "📍"}
+                </button>
+              </div>
 
-              {filteredObras.length > 0 && (
+              {filteredObras.length > 0 && showSuggestions && (
                 <div className="absolute left-0 right-0 top-full z-10 mt-2 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg">
                   <div className="max-h-80 overflow-y-auto p-1">
                     {filteredObras.map((obra) => (
@@ -525,6 +571,7 @@ export default function HomePage() {
                         onClick={async () => {
                           await loadObraDetail(obra.id);
                           setObraSearch(obra.nombre);
+                          setShowSuggestions(false);
                         }}
                       >
                         <p className="text-sm font-semibold text-slate-800">{obra.nombre}</p>
@@ -534,45 +581,106 @@ export default function HomePage() {
                   </div>
                 </div>
               )}
+
+              {obrasNearby !== null && (
+                <div className="mt-2 overflow-hidden rounded-2xl border border-cyan-200 bg-white shadow-lg">
+                  <div className="border-b border-slate-100 px-3 py-2 flex items-center justify-between">
+                    <p className="text-[11px] font-semibold text-cyan-700">📍 Obras a 100m de tu ubicación</p>
+                    <button className="text-[10px] text-slate-400 hover:text-slate-600" onClick={() => setObrasNearby(null)}>✕</button>
+                  </div>
+                  {obrasNearby.length === 0 ? (
+                    <p className="px-4 py-3 text-xs text-slate-500">No hay obras a 100m de tu posición actual.</p>
+                  ) : (
+                    <div className="max-h-60 overflow-y-auto p-1">
+                      {obrasNearby.map((obra) => (
+                        <button
+                          key={obra.id}
+                          type="button"
+                          className="w-full rounded-xl px-3 py-2 text-left hover:bg-slate-50"
+                          onClick={async () => { await loadObraDetail(obra.id); setObrasNearby(null); }}
+                        >
+                          <p className="text-sm font-semibold text-slate-800">{obra.nombre}</p>
+                          <p className="mt-0.5 text-xs text-slate-500">{obra.ubicacion}</p>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {selectedObra && (
-              <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                <div className="mb-3">
-                  <p className="text-sm font-semibold text-slate-900">{selectedObra.nombre}</p>
-                  <p className="mt-1 text-xs text-slate-600">Sector {selectedObra.ubicacion}</p>
-                </div>
-                <div className="grid grid-cols-2 gap-2 text-[11px]">
-                  <div className="rounded-lg bg-slate-50 px-3 py-2">
-                    <p className="text-[10px] uppercase tracking-wide text-slate-500">Estado</p>
-                    <p className="mt-0.5 font-semibold text-slate-700">{selectedObra.estado.replace("_", " ")}</p>
+              <div className="mt-4 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+                {selectedObra.descripcion && (
+                  <p className="mb-2 text-xs text-slate-600">{selectedObra.descripcion}</p>
+                )}
+                <div className="flex items-center gap-2">
+                  <div className="grid grid-cols-4 gap-2 flex-1 text-[11px]">
+                    <div className="rounded-lg bg-slate-50 px-2 py-1.5">
+                      <p className="text-[10px] uppercase tracking-wide text-slate-500">Estado</p>
+                      <p className="mt-0.5 font-semibold text-slate-700">{selectedObra.estado.replace("_", " ")}</p>
+                    </div>
+                    <div className="rounded-lg bg-slate-50 px-2 py-1.5">
+                      <p className="text-[10px] uppercase tracking-wide text-slate-500">Presupuesto</p>
+                      <p className="mt-0.5 font-semibold text-slate-700">{presupuestoM}</p>
+                    </div>
+                    <div className="rounded-lg bg-slate-50 px-2 py-1.5">
+                      <p className="text-[10px] uppercase tracking-wide text-slate-500">Avance Real</p>
+                      <p className="mt-0.5 font-semibold text-slate-700">{progressByHitos}%</p>
+                    </div>
+                    <div className="rounded-lg bg-slate-50 px-2 py-1.5">
+                      <p className="text-[10px] uppercase tracking-wide text-slate-500">Av. Esperado</p>
+                      <p className="mt-0.5 font-semibold text-slate-700">{progressByTime}%</p>
+                    </div>
                   </div>
-                  <div className="rounded-lg bg-slate-50 px-3 py-2">
-                    <p className="text-[10px] uppercase tracking-wide text-slate-500">Presupuesto</p>
-                    <p className="mt-0.5 font-semibold text-slate-700">{presupuestoM}</p>
+                  <div className="flex shrink-0 gap-2">
+                    {selectedObra.latitud != null && selectedObra.longitud != null && (
+                      <button
+                        type="button"
+                        className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 shadow-sm"
+                        onClick={() => setShowMapaObra(true)}
+                      >
+                        📍 Ver ubicación
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      className="rounded-lg bg-orange-500 px-3 py-2 text-xs font-semibold text-white hover:bg-orange-600 shadow-md"
+                      onClick={() => setShowObraMore(true)}
+                    >
+                      Ver más
+                    </button>
                   </div>
-                  <div className="rounded-lg bg-slate-50 px-3 py-2">
-                    <p className="text-[10px] uppercase tracking-wide text-slate-500">Avance Real</p>
-                    <p className="mt-0.5 font-semibold text-slate-700">{progressByHitos}%</p>
-                  </div>
-                  <div className="rounded-lg bg-slate-50 px-3 py-2">
-                    <p className="text-[10px] uppercase tracking-wide text-slate-500">Avance Esperado</p>
-                    <p className="mt-0.5 font-semibold text-slate-700">{progressByTime}%</p>
-                  </div>
-                </div>
-                <div className="mt-3 flex justify-center">
-                  <button
-                    type="button"
-                    className="rounded-lg bg-orange-500 px-4 py-2 text-xs font-semibold text-white hover:bg-orange-600 shadow-md"
-                    onClick={() => setShowObraMore(true)}
-                  >
-                    Ver más
-                  </button>
                 </div>
               </div>
             )}
           </div>
         </div>
+
+      {actividadesFiscalizablesHoy.length > 0 && (
+        <div className="mt-3 rounded-2xl border border-orange-200 bg-orange-50 px-4 py-3">
+          <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-orange-700">Actividades a fiscalizar hoy</p>
+          <div className="space-y-2">
+            {actividadesFiscalizablesHoy.map((a) => (
+              <div key={a.id} className="flex items-center justify-between gap-3 rounded-xl border border-orange-100 bg-white px-3 py-2">
+                <div className="min-w-0">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{a.hitoNombre}</p>
+                  <p className="truncate text-sm font-semibold text-slate-800">{a.nombre}</p>
+                </div>
+                <button
+                  type="button"
+                  className="shrink-0 rounded-lg bg-orange-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-orange-600"
+                  onClick={() => {
+                    setSelectedActivityId(a.id);
+                  }}
+                >
+                  Fiscalizar
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {selectedObra && (
         <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -586,7 +694,15 @@ export default function HomePage() {
             <p className="text-sm text-slate-500">No hay hitos/actividades para mostrar.</p>
           ) : (
             <div className="overflow-x-auto">
-              <div className="min-w-[980px]">
+              <div className="relative min-w-[980px]">
+                {showTodayLine && (
+                  <div
+                    className="pointer-events-none absolute bottom-0 top-[36px] z-10 w-0.5 bg-red-500"
+                    style={{ left: `calc(${todayGanttLeft.toFixed(2)}% + ${(252 * (1 - todayGanttLeft / 100)).toFixed(1)}px)` }}
+                  >
+                    <span className="absolute -top-[20px] left-1 whitespace-nowrap text-[9px] font-bold text-red-500">Hoy</span>
+                  </div>
+                )}
                 <div className="grid grid-cols-[240px_1fr] gap-3 border-b border-slate-200 pb-2">
                   <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Actividad / Hito</p>
                   <div className="relative h-8">
@@ -645,8 +761,9 @@ export default function HomePage() {
                             {actividades.map((actividad) => {
                               const start = new Date(actividad.fechaInicio).getTime();
                               const end = new Date(actividad.fechaFin).getTime();
-                              const left = ((start - ganttStart.getTime()) / ganttDurationMs) * 100;
-                              const width = Math.max(8, ((end - start) / ganttDurationMs) * 100);
+                              const leftPct = Math.max(0, Math.min(100, ((start - ganttStart.getTime()) / ganttDurationMs) * 100));
+                              const endPct = Math.max(0, Math.min(100, ((end - ganttStart.getTime()) / ganttDurationMs) * 100));
+                              const widthPct = Math.max(1, endPct - leftPct);
                               const barColor =
                                 actividad.estado === "COMPLETADO"
                                   ? "bg-emerald-500"
@@ -681,7 +798,7 @@ export default function HomePage() {
 
                                     <div
                                       className={`absolute top-1/2 h-3 -translate-y-1/2 rounded-full ${barColor}`}
-                                      style={{ left: `${Math.max(0, Math.min(100, left))}%`, width: `${Math.min(100 - left, width)}%` }}
+                                      style={{ left: `${leftPct}%`, width: `${widthPct}%` }}
                                     />
 
                                     {rowComments.map((comment) => {
@@ -1087,6 +1204,37 @@ export default function HomePage() {
         </div>
       )}
 
+      {showMapaObra && selectedObra?.latitud != null && selectedObra?.longitud != null && (
+        <div
+          className="fixed inset-0 z-[55] flex items-center justify-center bg-slate-950/70 p-4"
+          onClick={() => setShowMapaObra(false)}
+        >
+          <motion.div
+            initial={{ opacity: 0, y: 10, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ duration: 0.18 }}
+            className="w-full max-w-lg overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+              <div>
+                <p className="text-sm font-semibold text-slate-800">Ubicación de la obra</p>
+                <p className="text-[11px] text-slate-500">{selectedObra.nombre}</p>
+              </div>
+              <button className="rounded-full border border-slate-200 px-2 py-1 text-xs text-slate-600" onClick={() => setShowMapaObra(false)}>
+                Cerrar
+              </button>
+            </div>
+            <div className="p-1">
+              <MapaObra lat={selectedObra.latitud} lng={selectedObra.longitud} nombre={selectedObra.nombre} />
+            </div>
+            <div className="px-4 py-3 text-[10px] text-slate-400">
+              {selectedObra.latitud.toFixed(6)}, {selectedObra.longitud.toFixed(6)}
+            </div>
+          </motion.div>
+        </div>
+      )}
+
       {showObraMore && selectedObra && (
         <div
           className="fixed inset-0 z-[55] flex items-center justify-center bg-slate-950/70 p-4"
@@ -1270,16 +1418,27 @@ function CommentForm({ onSubmit }: { onSubmit: (texto: string, severidad: "LEVE"
   const [texto, setTexto] = useState("");
   const [severidad, setSeveridad] = useState<"LEVE" | "MODERADO" | "GRAVE">("LEVE");
   const [file, setFile] = useState<File | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   return (
     <form
       className="mt-3 space-y-2"
       onSubmit={async (e) => {
         e.preventDefault();
-        await onSubmit(texto, severidad, file);
-        setTexto("");
-        setSeveridad("LEVE");
-        setFile(null);
+        setError(null);
+        setSubmitting(true);
+        try {
+          await onSubmit(texto, severidad, file);
+          setTexto("");
+          setSeveridad("LEVE");
+          setFile(null);
+        } catch (err) {
+          const raw = err instanceof Error ? err.message : "Error al enviar";
+          try { const parsed = JSON.parse(raw) as { message?: string }; setError(parsed.message ?? raw); } catch { setError(raw); }
+        } finally {
+          setSubmitting(false);
+        }
       }}
     >
       <input
@@ -1318,7 +1477,10 @@ function CommentForm({ onSubmit }: { onSubmit: (texto: string, severidad: "LEVE"
         </button>
       </div>
       <input className="w-full text-xs" type="file" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
-      <button className="w-full rounded bg-brand-700 px-2 py-1 text-xs text-white">Enviar evidencia</button>
+      {error && <p className="text-xs text-rose-600">{error}</p>}
+      <button className="w-full rounded bg-brand-700 px-2 py-1 text-xs text-white disabled:opacity-50" disabled={!texto.trim() || submitting}>
+        {submitting ? "Enviando..." : "Enviar evidencia"}
+      </button>
     </form>
   );
 }

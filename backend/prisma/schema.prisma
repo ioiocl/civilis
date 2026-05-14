@@ -81,6 +81,8 @@ model Obra {
   fechaInicio DateTime
   fechaFin    DateTime
   estado      EstadoObra   @default(PLANIFICADA)
+  latitud     Float?
+  longitud    Float?
   creadoPor   String
   createdAt   DateTime    @default(now())
   hitos       Hito[]

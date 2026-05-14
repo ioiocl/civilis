@@ -10,6 +10,8 @@ export interface Obra {
   fechaInicio: Date;
   fechaFin: Date;
   estado: EstadoObra;
+  latitud: number | null;
+  longitud: number | null;
   creadoPor: string;
   createdAt: Date;
 }

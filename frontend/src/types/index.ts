@@ -20,6 +20,8 @@ export interface Obra {
   fechaInicio: string;
   fechaFin: string;
   estado: string;
+  latitud?: number | null;
+  longitud?: number | null;
 }
 
 export interface Actividad {

@@ -17,6 +17,8 @@ function mapObra(row: any): Obra {
     fechaInicio: row.fechaInicio,
     fechaFin: row.fechaFin,
     estado: mapEstado(row.estado),
+    latitud: row.latitud ?? null,
+    longitud: row.longitud ?? null,
     creadoPor: row.creadoPor,
     createdAt: row.createdAt,
   };
@@ -33,6 +35,8 @@ export class ObraRepositoryPrisma implements ObraRepository {
         valor: data.valor,
         fechaInicio: data.fechaInicio,
         fechaFin: data.fechaFin,
+        latitud: data.latitud ?? null,
+        longitud: data.longitud ?? null,
         creadoPor: data.creadoPor,
       },
     });

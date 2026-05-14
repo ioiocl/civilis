@@ -30,7 +30,10 @@ export default function NuevaObraPage() {
     valor: "",
     fechaInicio: "",
     fechaFin: "",
+    latitud: "",
+    longitud: "",
   });
+  const [gpsLoading, setGpsLoading] = useState(false);
 
   const [csvHitos, setCsvHitos] = useState<CsvHito[] | null>(null);
   const [csvFileName, setCsvFileName] = useState("");
@@ -162,6 +165,8 @@ export default function NuevaObraPage() {
           valor: valorNumerico,
           fechaInicio: new Date(`${form.fechaInicio}T00:00:00`).toISOString(),
           fechaFin: new Date(`${form.fechaFin}T00:00:00`).toISOString(),
+          latitud: form.latitud ? parseFloat(form.latitud) : null,
+          longitud: form.longitud ? parseFloat(form.longitud) : null,
         }),
       }, session.token);
 
@@ -290,6 +295,46 @@ export default function NuevaObraPage() {
               value={form.descripcion}
               onChange={(e) => setForm((p) => ({ ...p, descripcion: e.target.value }))}
             />
+            <div className="md:col-span-2">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs font-semibold text-slate-600">Coordenadas (opcional)</p>
+                <button
+                  type="button"
+                  disabled={gpsLoading}
+                  className="flex items-center gap-1.5 rounded-lg border border-cyan-200 bg-cyan-50 px-3 py-1.5 text-xs font-semibold text-cyan-700 hover:bg-cyan-100 disabled:opacity-50"
+                  onClick={() => {
+                    setGpsLoading(true);
+                    navigator.geolocation.getCurrentPosition(
+                      (pos) => {
+                        setForm((p) => ({
+                          ...p,
+                          latitud: pos.coords.latitude.toFixed(6),
+                          longitud: pos.coords.longitude.toFixed(6),
+                        }));
+                        setGpsLoading(false);
+                      },
+                      () => setGpsLoading(false)
+                    );
+                  }}
+                >
+                  {gpsLoading ? "Obteniendo..." : "📍 Usar mi ubicación"}
+                </button>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <input
+                  className="rounded-lg border border-slate-200 bg-slate-50 p-2.5 text-sm focus:border-cyan-400 focus:outline-none"
+                  placeholder="Latitud (ej: -33.4569)"
+                  value={form.latitud}
+                  onChange={(e) => setForm((p) => ({ ...p, latitud: e.target.value }))}
+                />
+                <input
+                  className="rounded-lg border border-slate-200 bg-slate-50 p-2.5 text-sm focus:border-cyan-400 focus:outline-none"
+                  placeholder="Longitud (ej: -70.6483)"
+                  value={form.longitud}
+                  onChange={(e) => setForm((p) => ({ ...p, longitud: e.target.value }))}
+                />
+              </div>
+            </div>
           </div>
         </section>
 

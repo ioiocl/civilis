@@ -32,6 +32,9 @@ export default function MisObrasPage() {
   const [showCreateActividad, setShowCreateActividad] = useState(false);
   const [isCreatingActividad, setIsCreatingActividad] = useState(false);
   const [createActividadError, setCreateActividadError] = useState<string | null>(null);
+  const [isPublishingPlan, setIsPublishingPlan] = useState(false);
+  const [publishPlanError, setPublishPlanError] = useState<string | null>(null);
+  const [publishPlanSuccess, setPublishPlanSuccess] = useState(false);
 
   const [hitoForm, setHitoForm] = useState({ nombre: "", descripcion: "", fechaInicio: "", fechaFin: "", orden: "" });
   const [actividadForm, setActividadForm] = useState({ hitoId: "", nombre: "", descripcion: "", fechaInicio: "", fechaFin: "", orden: "" });
@@ -156,6 +159,22 @@ export default function MisObrasPage() {
       setShowCreateActividad(false);
     } catch (e) { setCreateActividadError(toFriendlyApiError(e)); }
     finally { setIsCreatingActividad(false); }
+  }
+
+  async function publicarPlan() {
+    if (!session || !selectedObra) return;
+    setIsPublishingPlan(true);
+    setPublishPlanError(null);
+    setPublishPlanSuccess(false);
+    try {
+      await apiFetch(`/obras/${selectedObra}/plan/versiones`, { method: "POST" }, session.token);
+      setPublishPlanSuccess(true);
+      setTimeout(() => setPublishPlanSuccess(false), 3000);
+    } catch (e) {
+      setPublishPlanError(toFriendlyApiError(e));
+    } finally {
+      setIsPublishingPlan(false);
+    }
   }
 
   async function enviarComentario(actividadId: string, texto: string, severidad: "LEVE" | "MODERADO" | "GRAVE", file?: File | null, fechaInspeccion?: Date) {
@@ -386,6 +405,25 @@ export default function MisObrasPage() {
                   </div>
                 </div>
               )}
+            </div>
+
+            {/* Publicar Plan */}
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <p className="text-sm font-semibold text-slate-800">Publicar versión de plan</p>
+                  <p className="text-[11px] text-slate-500 mt-0.5">Requerido para que los fiscalizadores puedan registrar fiscalizaciones</p>
+                </div>
+                <button
+                  className="rounded border border-slate-300 bg-white px-3 py-1 text-xs text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                  onClick={publicarPlan}
+                  disabled={isPublishingPlan}
+                >
+                  {isPublishingPlan ? "Publicando..." : "Publicar plan"}
+                </button>
+              </div>
+              {publishPlanError && <p className="mt-2 text-xs text-rose-600">{publishPlanError}</p>}
+              {publishPlanSuccess && <p className="mt-2 text-xs text-emerald-600">Plan publicado correctamente.</p>}
             </div>
           </div>
         )}
@@ -728,8 +766,23 @@ function CommentForm({ onSubmit }: { onSubmit: (texto: string, severidad: "LEVE"
   const [texto, setTexto] = useState("");
   const [severidad, setSeveridad] = useState<"LEVE" | "MODERADO" | "GRAVE">("LEVE");
   const [file, setFile] = useState<File | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
   return (
-    <form className="mt-3 space-y-2" onSubmit={async (e) => { e.preventDefault(); await onSubmit(texto, severidad, file); setTexto(""); setSeveridad("LEVE"); setFile(null); }}>
+    <form className="mt-3 space-y-2" onSubmit={async (e) => {
+      e.preventDefault();
+      setError(null);
+      setSubmitting(true);
+      try {
+        await onSubmit(texto, severidad, file);
+        setTexto(""); setSeveridad("LEVE"); setFile(null);
+      } catch (err) {
+        const raw = err instanceof Error ? err.message : "Error al enviar";
+        try { const parsed = JSON.parse(raw) as { message?: string }; setError(parsed.message ?? raw); } catch { setError(raw); }
+      } finally {
+        setSubmitting(false);
+      }
+    }}>
       <input className="w-full rounded border bg-white px-2 py-1 text-xs" placeholder="Comentario de avance" value={texto} onChange={(e) => setTexto(e.target.value)} />
       <div className="flex gap-2">
         {(["LEVE", "MODERADO", "GRAVE"] as const).map((s) => (
@@ -742,8 +795,9 @@ function CommentForm({ onSubmit }: { onSubmit: (texto: string, severidad: "LEVE"
         ))}
       </div>
       <input type="file" accept="image/*,video/*" className="w-full rounded border bg-white px-2 py-1 text-xs" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
-      <button type="submit" className="w-full rounded bg-slate-800 py-1.5 text-xs font-semibold text-white hover:bg-slate-700" disabled={!texto.trim()}>
-        Enviar fiscalización
+      {error && <p className="text-xs text-rose-600">{error}</p>}
+      <button type="submit" className="w-full rounded bg-slate-800 py-1.5 text-xs font-semibold text-white hover:bg-slate-700 disabled:opacity-50" disabled={!texto.trim() || submitting}>
+        {submitting ? "Enviando..." : "Enviar fiscalización"}
       </button>
     </form>
   );

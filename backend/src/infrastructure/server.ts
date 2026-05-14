@@ -117,6 +117,8 @@ export function buildServer() {
         valor: z.number().positive(),
         fechaInicio: z.string().datetime(),
         fechaFin: z.string().datetime(),
+        latitud: z.number().min(-90).max(90).nullable().optional(),
+        longitud: z.number().min(-180).max(180).nullable().optional(),
       })
       .parse(request.body);
 
@@ -124,6 +126,8 @@ export function buildServer() {
       ...body,
       fechaInicio: new Date(body.fechaInicio),
       fechaFin: new Date(body.fechaFin),
+      latitud: body.latitud ?? null,
+      longitud: body.longitud ?? null,
       creadoPor: request.user.sub,
     });
 
@@ -391,6 +395,55 @@ export function buildServer() {
     await authGuard(request, ["ADMIN", "FISCALIZADOR", "CIUDADANO"]);
     const params = z.object({ id: z.string() }).parse(request.params);
     return comentarioRepository.listarPorActividad(params.id);
+  });
+
+  app.get("/obras/cercanas", async (request) => {
+    await authGuard(request, ["ADMIN", "FISCALIZADOR", "CIUDADANO"]);
+    const query = z.object({
+      lat: z.string().transform(Number),
+      lng: z.string().transform(Number),
+    }).parse(request.query);
+    const { lat, lng } = query;
+    const rows = await prisma.$queryRaw<Array<{
+      id: string; nombre: string; descripcion: string; ubicacion: string;
+      estado: string; latitud: number; longitud: number; distancia_m: number;
+    }>>`
+      SELECT * FROM (
+        SELECT id, nombre, descripcion, ubicacion, estado, latitud, longitud,
+          (6371000 * acos(
+            LEAST(1.0,
+              cos(radians(${lat})) * cos(radians(latitud)) *
+              cos(radians(longitud) - radians(${lng})) +
+              sin(radians(${lat})) * sin(radians(latitud))
+            )
+          )) AS distancia_m
+        FROM "Obra"
+        WHERE latitud IS NOT NULL AND longitud IS NOT NULL
+      ) sub
+      WHERE distancia_m <= 100
+      ORDER BY distancia_m ASC
+    `;
+    return rows;
+  });
+
+  app.get("/obras/:id/actividades/fiscalizables", async (request) => {
+    await authGuard(request, ["ADMIN", "FISCALIZADOR", "CIUDADANO"]);
+    const params = z.object({ id: z.string() }).parse(request.params);
+    const rows = await prisma.$queryRaw<Array<{
+      id: string; nombre: string; descripcion: string;
+      fechaInicio: Date; fechaFin: Date; orden: number; estado: string;
+      hitoId: string; hitoNombre: string;
+    }>>`
+      SELECT a.id, a.nombre, a.descripcion, a."fechaInicio", a."fechaFin", a.orden, a.estado,
+             h.id AS "hitoId", h.nombre AS "hitoNombre"
+      FROM "Actividad" a
+      JOIN "Hito" h ON a."hitoId" = h.id
+      WHERE h."obraId" = ${params.id}
+        AND a."fechaInicio"::date <= CURRENT_DATE
+        AND a."fechaFin"::date >= CURRENT_DATE
+      ORDER BY h.orden ASC, a.orden ASC
+    `;
+    return rows;
   });
 
   app.setErrorHandler((error, _request, reply) => {
