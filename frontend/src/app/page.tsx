@@ -23,10 +23,13 @@ export default function HomePage() {
   const [obraSearch, setObraSearch] = useState("");
   const [expandedHitos, setExpandedHitos] = useState<Set<string>>(new Set());
   const [selectedActivityId, setSelectedActivityId] = useState<string | null>(null);
+  const [highlightedActivityId, setHighlightedActivityId] = useState<string | null>(null);
+  const [timelineZoom, setTimelineZoom] = useState(1);
   const [selectedCommentId, setSelectedCommentId] = useState<string | null>(null);
   const [selectedFiscClickDate, setSelectedFiscClickDate] = useState<Date | undefined>(undefined);
   const [qrCopied, setQrCopied] = useState(false);
   const qrRef = useRef<HTMLDivElement>(null);
+  const timelineScrollRef = useRef<HTMLDivElement>(null);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [notificaciones, setNotificaciones] = useState<Notificacion[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -197,6 +200,47 @@ export default function HomePage() {
     if (!selectedActivityId) return null;
     return allActividades.find((a) => a.id === selectedActivityId) ?? null;
   }, [allActividades, selectedActivityId]);
+
+  const showTodayOnActivity = useMemo(() => {
+    if (!selectedActivity) return false;
+    const MS_DAY = 1000 * 60 * 60 * 24;
+    const aS = new Date(selectedActivity.fechaInicio);
+    const aE = new Date(selectedActivity.fechaFin);
+    const startUTC = Date.UTC(aS.getFullYear(), aS.getMonth(), aS.getDate());
+    const endUTC = Date.UTC(aE.getFullYear(), aE.getMonth(), aE.getDate());
+    const days = Math.max(1, Math.ceil((endUTC - startUTC) / MS_DAY));
+    const now = new Date();
+    const todayUTC = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+    const todayDays = (todayUTC - startUTC) / MS_DAY;
+    return todayDays >= 0 && todayDays <= days;
+  }, [selectedActivity]);
+
+  function scrollToToday() {
+    if (!selectedActivity || !timelineScrollRef.current) return;
+    const MS_DAY = 1000 * 60 * 60 * 24;
+    const aS = new Date(selectedActivity.fechaInicio);
+    const aE = new Date(selectedActivity.fechaFin);
+    const startUTC = Date.UTC(aS.getFullYear(), aS.getMonth(), aS.getDate());
+    const endUTC = Date.UTC(aE.getFullYear(), aE.getMonth(), aE.getDate());
+    const days = Math.max(1, Math.ceil((endUTC - startUTC) / MS_DAY));
+    const now = new Date();
+    const todayUTC = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+    const todayDays = (todayUTC - startUTC) / MS_DAY;
+    const baseW = Math.max(980, Math.round(days * 40));
+    const timelineW = Math.min(8000, Math.round(baseW * timelineZoom));
+    const todayPx = (todayDays / days) * timelineW;
+    const containerW = timelineScrollRef.current.clientWidth;
+    timelineScrollRef.current.scrollLeft = todayPx - containerW / 2;
+  }
+
+  useEffect(() => {
+    if (!selectedActivityId) return;
+    setTimelineZoom(1);
+    const timer = setTimeout(() => { scrollToToday(); }, 120);
+    return () => clearTimeout(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedActivityId]);
+
   const obraShareUrl = selectedObraId ? `https://civilis.cl/?obra=${selectedObraId}` : "";
   const presupuestoM = selectedObraGeneral ? `$${(selectedObraGeneral.valor / 1_000_000).toFixed(1)}M` : "-";
   const responsibleEntity = selectedObraGeneral?.actores[0]?.organizacion ?? selectedObraGeneral?.encargado ?? "Sin definir";
@@ -667,15 +711,29 @@ export default function HomePage() {
                   <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{a.hitoNombre}</p>
                   <p className="truncate text-sm font-semibold text-slate-800">{a.nombre}</p>
                 </div>
-                <button
-                  type="button"
-                  className="shrink-0 rounded-lg bg-orange-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-orange-600"
-                  onClick={() => {
-                    setSelectedActivityId(a.id);
-                  }}
-                >
-                  Fiscalizar
-                </button>
+                <div className="flex shrink-0 gap-2">
+                  <button
+                    type="button"
+                    className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                    onClick={() => {
+                      setExpandedHitos((prev) => { const next = new Set(prev); next.add(a.hitoId); return next; });
+                      setHighlightedActivityId(a.id);
+                      setTimeout(() => setHighlightedActivityId(null), 2000);
+                      setTimeout(() => {
+                        document.getElementById(`activity-row-${a.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+                      }, 150);
+                    }}
+                  >
+                    Plan
+                  </button>
+                  <button
+                    type="button"
+                    className="rounded-lg bg-orange-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-orange-600"
+                    onClick={() => { setSelectedActivityId(a.id); }}
+                  >
+                    Fiscalizar
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -774,8 +832,17 @@ export default function HomePage() {
                                 (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
                               );
 
+                              const graveCount = rowComments.filter((c) => c.severidad === "GRAVE").length;
+                              const moderadoCount = rowComments.filter((c) => c.severidad === "MODERADO").length;
+                              const leveCount = rowComments.filter((c) => c.severidad === "LEVE").length;
+                              const isHighlighted = highlightedActivityId === actividad.id;
+
                               return (
-                                <div key={actividad.id} className="grid grid-cols-[240px_1fr] items-center gap-3">
+                                <div
+                                  id={`activity-row-${actividad.id}`}
+                                  key={actividad.id}
+                                  className={`grid grid-cols-[240px_1fr] items-center gap-3 rounded-xl transition-all duration-300 ${isHighlighted ? "ring-2 ring-red-500 ring-offset-1" : ""}`}
+                                >
                                   <button
                                     type="button"
                                     className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-left hover:bg-slate-50"
@@ -786,6 +853,18 @@ export default function HomePage() {
                                   </button>
 
                                   <div className="relative h-14 rounded-xl border border-slate-200 bg-white/90 px-2">
+                                    {/* Círculos resumen: GRAVE arriba, LEVE/MODERADO abajo */}
+                                    {graveCount > 0 && (
+                                      <span className="absolute left-2 top-1 z-10 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-500 px-1 text-[8px] font-bold text-white">{graveCount}</span>
+                                    )}
+                                    <div className="absolute bottom-1 left-2 z-10 flex gap-1">
+                                      {moderadoCount > 0 && (
+                                        <span className="flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-blue-500 px-1 text-[8px] font-bold text-white">{moderadoCount}</span>
+                                      )}
+                                      {leveCount > 0 && (
+                                        <span className="flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-yellow-500 px-1 text-[8px] font-bold text-white">{leveCount}</span>
+                                      )}
+                                    </div>
                                     {timelineTicks.map((tick) => (
                                       <span
                                         key={`line-${actividad.id}-${tick.key}`}
@@ -801,23 +880,6 @@ export default function HomePage() {
                                       style={{ left: `${leftPct}%`, width: `${widthPct}%` }}
                                     />
 
-                                    {rowComments.map((comment) => {
-                                      const commentTime = new Date(comment.fechaInspeccion ?? comment.createdAt).getTime();
-                                      const commentLeft = ((commentTime - ganttStart.getTime()) / ganttDurationMs) * 100;
-                                      const isSelected = selectedCommentId === comment.id;
-
-                                      return (
-                                        <button
-                                          key={comment.id}
-                                          className={getSeverityPointClasses(comment.severidad, isSelected)}
-                                          style={{ left: `${Math.max(0, Math.min(100, commentLeft))}%` }}
-                                          title="Ver comentario"
-                                          onClick={() => setSelectedCommentId(isSelected ? null : comment.id)}
-                                        >
-                                          <span className="text-[10px] font-black leading-none text-white">{getSeverityGlyph(comment.severidad)}</span>
-                                        </button>
-                                      );
-                                    })}
                                   </div>
                                 </div>
                               );
@@ -994,75 +1056,155 @@ export default function HomePage() {
 
                 <div className="rounded-2xl border border-slate-200 bg-white p-4">
                   {(() => {
+                    const MS_DAY = 1000 * 60 * 60 * 24;
+                    // Coordenadas en días de calendario via Date.UTC — inmune a DST
+                    const aS = new Date(selectedActivity.fechaInicio);
+                    const aE = new Date(selectedActivity.fechaFin);
+                    const sy = aS.getFullYear(), sm = aS.getMonth(), sd = aS.getDate();
+                    const startUTC = Date.UTC(sy, sm, sd);
+                    const endUTC = Date.UTC(aE.getFullYear(), aE.getMonth(), aE.getDate());
+                    const days = Math.max(1, Math.ceil((endUTC - startUTC) / MS_DAY));
+                    const baseW = Math.max(980, Math.round(days * 40));
+                    const timelineWidthPx = Math.min(8000, Math.round(baseW * timelineZoom));
+                    // Para posicionar comentarios (fechas exactas) mantenemos ms
                     const activityStart = new Date(selectedActivity.fechaInicio).getTime();
                     const activityEnd = new Date(selectedActivity.fechaFin).getTime();
                     const duration = Math.max(1, activityEnd - activityStart);
-                    const days = Math.max(1, Math.ceil(duration / (1000 * 60 * 60 * 24)));
-                    const timelineWidthPx = Math.min(4000, Math.max(980, Math.round(days * 40)));
-                    const divisions = 10;
-                    const ticks = Array.from({ length: divisions + 1 }, (_, idx) => {
-                      const ratio = idx / divisions;
-                      const time = activityStart + ratio * duration;
-                      return { key: idx, left: `${ratio * 100}%`, label: new Date(time).toLocaleDateString() };
-                    });
+
+                    // Ticks: cada 1 día si zoom ≥ 125%, cada 5 si no
+                    const tickInterval = timelineZoom >= 1.25 ? 1 : 5;
+                    const ticks: { key: number; left: string; label: string }[] = [];
+                    for (let d = 0; d <= days; d += tickInterval) {
+                      // Usar aritmética de calendario para evitar drift por DST
+                      const tickDate = new Date(sy, sm, sd + d);
+                      const tickUTC = Date.UTC(tickDate.getFullYear(), tickDate.getMonth(), tickDate.getDate());
+                      if (tickUTC > endUTC + MS_DAY) break;
+                      const label = tickInterval === 1
+                        ? `${tickDate.getDate()} ${tickDate.toLocaleDateString("es-CL", { month: "short" })}`
+                        : `${tickDate.getDate()}`;
+                      ticks.push({ key: d, left: `${Math.min(100, (d / days) * 100)}%`, label });
+                    }
+
+                    // Bandas de mes — coordenadas UTC
+                    const monthBands: { key: string; label: string; left: string; width: string }[] = [];
+                    let cy = sy, cmo = sm;
+                    while (Date.UTC(cy, cmo, 1) <= endUTC) {
+                      const bandStartUTC = Math.max(startUTC, Date.UTC(cy, cmo, 1));
+                      const bandEndUTC = Math.min(endUTC, Date.UTC(cy, cmo + 1, 1) - 1);
+                      const left = Math.max(0, ((bandStartUTC - startUTC) / (days * MS_DAY)) * 100);
+                      const width = Math.max(0, ((bandEndUTC - bandStartUTC + MS_DAY) / (days * MS_DAY)) * 100);
+                      monthBands.push({
+                        key: `${cy}-${cmo}`,
+                        label: new Date(cy, cmo, 1).toLocaleDateString("es-CL", { month: "long", year: "numeric" }),
+                        left: `${left}%`,
+                        width: `${width}%`,
+                      });
+                      cmo++; if (cmo > 11) { cy++; cmo = 0; }
+                    }
+
+                    // Hoy: días calendario desde startUTC — mismo sistema que ticks
+                    const now = new Date();
+                    const todayUTC = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+                    const todayDays = (todayUTC - startUTC) / MS_DAY;
+                    const todayPct = (todayDays / days) * 100;
+                    const showToday = todayPct >= 0 && todayPct <= 100;
+
                     const comments = [...(comentariosByActividad[selectedActivity.id] ?? [])].sort(
                       (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
                     );
-
-                    const bucketCounts = new Map<number, number>();
                     return (
-                      <div className="overflow-x-auto">
-                        <div className="space-y-3" style={{ width: timelineWidthPx }}>
-                          <div className="relative h-10">
-                            {ticks.map((tick) => (
-                              <div key={tick.key} className="absolute top-0 -translate-x-1/2" style={{ left: tick.left }}>
-                                <p className="text-[10px] text-slate-500">{tick.label}</p>
-                                <span className="mx-auto mt-1 block h-1.5 w-1.5 rounded-full bg-slate-300" />
-                              </div>
-                            ))}
-                          </div>
-
-                          <div
-                            className={`relative h-20 rounded-xl bg-slate-50 px-2 ${canComment ? "cursor-crosshair" : ""}`}
-                            onClick={canComment ? (e) => {
-                              const rect = e.currentTarget.getBoundingClientRect();
-                              const ratio = (e.clientX - rect.left) / rect.width;
-                              const clickTime = activityStart + ratio * duration;
-                              setSelectedFiscClickDate(new Date(clickTime));
-                            } : undefined}
-                          >
-                            <div className="absolute left-2 right-2 top-1/2 h-2 -translate-y-1/2 rounded-full bg-slate-200" />
-
-                            {comments.map((comment) => {
-                              const commentTime = new Date(comment.fechaInspeccion ?? comment.createdAt).getTime();
-                              const rawLeft = ((commentTime - activityStart) / duration) * 100;
-                              const left = Math.max(0, Math.min(100, rawLeft));
-                              const bucket = Math.round(left);
-                              const count = bucketCounts.get(bucket) ?? 0;
-                              bucketCounts.set(bucket, count + 1);
-                              const yOffset = (count % 3) * 18 - 18;
-                              const isSelected = selectedCommentId === comment.id;
-
-                              return (
-                                <button
-                                  key={comment.id}
-                                  className={getSeverityPointClasses(comment.severidad, isSelected)}
-                                  style={{ left: `${left}%`, marginTop: yOffset }}
-                                  title="Abrir reporte fiscalizador"
-                                  onClick={(e) => { e.stopPropagation(); setSelectedCommentId(isSelected ? null : comment.id); }}
-                                >
-                                  <span className="text-[10px] font-black leading-none text-white">{getSeverityGlyph(comment.severidad)}</span>
-                                </button>
-                              );
-                            })}
-                          </div>
-
-                          {canComment && (
-                            <p className="text-[10px] text-slate-400">
-                              Haz clic en el timeline para registrar una fiscalización en esa fecha
-                            </p>
+                      <div>
+                        {/* Fila superior: botón Hoy centrado + zoom a la derecha */}
+                        <div className="relative mb-2 flex items-center justify-end gap-1">
+                          {showToday && (
+                            <button
+                              type="button"
+                              onClick={scrollToToday}
+                              title="Centrar en hoy"
+                              className="absolute left-1/2 -translate-x-1/2 flex items-center gap-1.5 rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-[11px] font-medium text-sky-700 hover:bg-sky-100"
+                            >
+                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="h-3.5 w-3.5">
+                                <circle cx="12" cy="12" r="6" />
+                                <line x1="12" y1="2" x2="12" y2="6" />
+                                <line x1="12" y1="18" x2="12" y2="22" />
+                                <line x1="2" y1="12" x2="6" y2="12" />
+                                <line x1="18" y1="12" x2="22" y2="12" />
+                              </svg>
+                              Hoy
+                            </button>
                           )}
+                          <button type="button" onClick={() => setTimelineZoom((z) => Math.max(0.5, +(z - 0.25).toFixed(2)))} className="rounded-lg border border-slate-200 bg-white px-2 py-0.5 text-sm font-bold text-slate-600 hover:bg-slate-50 leading-none">−</button>
+                          <span className="min-w-[36px] text-center text-[10px] text-slate-400">{Math.round(timelineZoom * 100)}%</span>
+                          <button type="button" onClick={() => setTimelineZoom((z) => Math.min(4, +(z + 0.25).toFixed(2)))} className="rounded-lg border border-slate-200 bg-white px-2 py-0.5 text-sm font-bold text-slate-600 hover:bg-slate-50 leading-none">+</button>
                         </div>
+                        <div ref={timelineScrollRef} className="overflow-x-auto rounded-xl">
+                          <div style={{ width: timelineWidthPx }}>
+                            {/* Encabezado de mes */}
+                            <div className="relative h-6 overflow-hidden rounded-t-xl">
+                              {monthBands.map((band) => (
+                                <div key={band.key} className="absolute inset-y-0 flex items-center justify-center overflow-hidden border-r border-sky-500/40 bg-sky-700 last:border-r-0"
+                                  style={{ left: band.left, width: band.width }}>
+                                  <span className="truncate px-1 text-[10px] font-semibold capitalize text-white">{band.label}</span>
+                                </div>
+                              ))}
+                            </div>
+                            {/* Fila de ticks de días */}
+                            <div className="relative h-7 border-b border-slate-200 bg-sky-50">
+                              {ticks.map((tick) => (
+                                <div key={tick.key} className="absolute inset-y-0 flex -translate-x-1/2 flex-col items-center justify-end pb-1" style={{ left: tick.left }}>
+                                  <span className="text-[9px] font-medium text-slate-600">{tick.label}</span>
+                                  <span className="mt-0.5 block h-1.5 w-px bg-slate-400" />
+                                </div>
+                              ))}
+                              {showToday && <div className="absolute inset-y-0 w-0.5 bg-red-500" style={{ left: `${todayPct}%` }} />}
+                            </div>
+                            {/* Pista del timeline */}
+                            <div
+                              className={`relative h-20 rounded-b-xl bg-slate-50 ${canComment ? "cursor-crosshair" : ""}`}
+                              onClick={canComment ? () => { setSelectedFiscClickDate(new Date()); } : undefined}
+                            >
+                              <div className="absolute left-2 right-2 top-1/2 h-2 -translate-y-1/2 rounded-full bg-slate-200" />
+                              {showToday && <div className="absolute inset-y-0 w-0.5 bg-red-500/70" style={{ left: `${todayPct}%` }} />}
+                              {(() => {
+                                const DOT = 18;
+                                const dayBuckets = new Map<string, number>();
+                                return comments.map((comment) => {
+                                  const ct = new Date(comment.fechaInspeccion ?? comment.createdAt);
+                                  const ctUTC = Date.UTC(ct.getFullYear(), ct.getMonth(), ct.getDate());
+                                  const dayOffset = Math.round((ctUTC - startUTC) / MS_DAY);
+                                  const dayPct = Math.max(0, Math.min(100, (dayOffset / days) * 100));
+                                  const isGrave = comment.severidad === "GRAVE";
+                                  const bkey = `${isGrave ? "g" : "lm"}-${dayOffset}`;
+                                  const count = dayBuckets.get(bkey) ?? 0;
+                                  dayBuckets.set(bkey, count + 1);
+                                  const isSelected = selectedCommentId === comment.id;
+                                  const bg = comment.severidad === "LEVE" ? "bg-yellow-500" : comment.severidad === "MODERADO" ? "bg-blue-500" : "bg-red-500";
+                                  return (
+                                    <button
+                                      key={comment.id}
+                                      className={`absolute z-20 flex items-center justify-center rounded-full border border-white shadow ${bg}${isSelected ? " ring-2 ring-slate-300" : ""}`}
+                                      style={{
+                                        width: DOT, height: DOT,
+                                        left: `${dayPct}%`,
+                                        top: isGrave ? "28%" : "72%",
+                                        transform: `translate(calc(-50% + ${count * DOT}px), -50%)`,
+                                      }}
+                                      title="Abrir reporte fiscalizador"
+                                      onClick={(e) => { e.stopPropagation(); setSelectedCommentId(isSelected ? null : comment.id); }}
+                                    >
+                                      <span style={{ fontSize: 8 }} className="font-black leading-none text-white">{getSeverityGlyph(comment.severidad)}</span>
+                                    </button>
+                                  );
+                                });
+                              })()}
+                            </div>
+                          </div>
+                        </div>
+                        {canComment && (
+                          <p className="mt-2 text-[10px] text-slate-400">
+                            Haz clic en el timeline para registrar una fiscalización en esa fecha
+                          </p>
+                        )}
                       </div>
                     );
                   })()}

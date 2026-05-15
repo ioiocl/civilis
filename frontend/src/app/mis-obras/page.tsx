@@ -25,6 +25,7 @@ export default function MisObrasPage() {
   const [selectedFiscClickDate, setSelectedFiscClickDate] = useState<Date | undefined>(undefined);
   const [expandedHitos, setExpandedHitos] = useState<Set<string>>(new Set());
   const [selectedActivityId, setSelectedActivityId] = useState<string | null>(null);
+  const [timelineZoom, setTimelineZoom] = useState(1);
 
   const [showCreateHito, setShowCreateHito] = useState(false);
   const [isCreatingHito, setIsCreatingHito] = useState(false);
@@ -686,47 +687,102 @@ export default function MisObrasPage() {
                 <p className="text-xs text-slate-600">{selectedActivity.descripcion}</p>
                 <div className="rounded-2xl border border-slate-200 bg-white p-4">
                   {(() => {
+                    const MS_DAY = 1000 * 60 * 60 * 24;
                     const actStart = new Date(selectedActivity.fechaInicio).getTime();
                     const actEnd = new Date(selectedActivity.fechaFin).getTime();
                     const duration = Math.max(1, actEnd - actStart);
-                    const days = Math.max(1, Math.ceil(duration / (1000 * 60 * 60 * 24)));
-                    const timelineW = Math.min(4000, Math.max(980, Math.round(days * 40)));
-                    const ticks = Array.from({ length: 11 }, (_, i) => ({ key: i, left: `${(i / 10) * 100}%`, label: new Date(actStart + (i / 10) * duration).toLocaleDateString() }));
+                    const days = Math.max(1, Math.ceil(duration / MS_DAY));
+                    const baseW = Math.max(980, Math.round(days * 40));
+                    const timelineW = Math.min(8000, Math.round(baseW * timelineZoom));
+
+                    // Ticks every 5 days
+                    const startDay = new Date(actStart); startDay.setHours(0, 0, 0, 0);
+                    const ticks: { key: number; left: string; day: number }[] = [];
+                    for (let d = 0; d <= days + 1; d += 5) {
+                      const t = startDay.getTime() + d * MS_DAY;
+                      if (t > actEnd + MS_DAY) break;
+                      ticks.push({ key: d, left: `${Math.min(100, (d / days) * 100)}%`, day: new Date(t).getDate() });
+                    }
+
+                    // Month bands
+                    const monthBands: { key: string; label: string; left: string; width: string }[] = [];
+                    const cursor = new Date(startDay.getFullYear(), startDay.getMonth(), 1);
+                    while (cursor.getTime() <= actEnd) {
+                      const bandStart = Math.max(actStart, cursor.getTime());
+                      const nextMonth = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
+                      const bandEnd = Math.min(actEnd, nextMonth.getTime() - 1);
+                      const left = Math.max(0, ((bandStart - actStart) / duration) * 100);
+                      const width = Math.max(0, ((bandEnd - bandStart + 1) / duration) * 100);
+                      monthBands.push({
+                        key: `${cursor.getFullYear()}-${cursor.getMonth()}`,
+                        label: cursor.toLocaleDateString("es-CL", { month: "long", year: "numeric" }),
+                        left: `${left}%`,
+                        width: `${width}%`,
+                      });
+                      cursor.setMonth(cursor.getMonth() + 1);
+                    }
+
+                    // Today
+                    const now = Date.now();
+                    const todayPct = ((now - actStart) / duration) * 100;
+                    const showToday = todayPct >= 0 && todayPct <= 100;
+
                     const comments = [...(comentariosByActividad[selectedActivity.id] ?? [])].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
                     const buckets = new Map<number, number>();
                     return (
-                      <div className="overflow-x-auto">
-                        <div className="space-y-3" style={{ width: timelineW }}>
-                          <div className="relative h-10">
-                            {ticks.map((tick) => (
-                              <div key={tick.key} className="absolute top-0 -translate-x-1/2" style={{ left: tick.left }}>
-                                <p className="text-[10px] text-slate-500">{tick.label}</p>
-                                <span className="mx-auto mt-1 block h-1.5 w-1.5 rounded-full bg-slate-300" />
-                              </div>
-                            ))}
-                          </div>
-                          <div className={`relative h-20 rounded-xl bg-slate-50 px-2 ${canComment ? "cursor-crosshair" : ""}`}
-                            onClick={canComment ? (e) => {
-                              const rect = e.currentTarget.getBoundingClientRect();
-                              setSelectedFiscClickDate(new Date(actStart + ((e.clientX - rect.left) / rect.width) * duration));
-                            } : undefined}>
-                            <div className="absolute left-2 right-2 top-1/2 h-2 -translate-y-1/2 rounded-full bg-slate-200" />
-                            {comments.map((comment) => {
-                              const ct = new Date(comment.fechaInspeccion ?? comment.createdAt).getTime();
-                              const cl = Math.max(0, Math.min(100, ((ct - actStart) / duration) * 100));
-                              const bucket = Math.round(cl);
-                              const cnt = buckets.get(bucket) ?? 0; buckets.set(bucket, cnt + 1);
-                              const isSel = selectedCommentId === comment.id;
-                              return (
-                                <button key={comment.id} className={getSeverityPointClasses(comment.severidad, isSel)} style={{ left: `${cl}%`, marginTop: (cnt % 3) * 18 - 18 }}
-                                  onClick={(e) => { e.stopPropagation(); setSelectedCommentId(isSel ? null : comment.id); }}>
-                                  <span className="text-[10px] font-black leading-none text-white">{getSeverityGlyph(comment.severidad)}</span>
-                                </button>
-                              );
-                            })}
-                          </div>
-                          {canComment && <p className="text-[10px] text-slate-400">Haz clic en el timeline para registrar una fiscalización en esa fecha</p>}
+                      <div>
+                        {/* Zoom controls */}
+                        <div className="mb-2 flex items-center justify-end gap-1">
+                          <button type="button" onClick={() => setTimelineZoom((z) => Math.max(0.5, +(z - 0.25).toFixed(2)))} className="rounded-lg border border-slate-200 bg-white px-2 py-0.5 text-sm font-bold text-slate-600 hover:bg-slate-50 leading-none">−</button>
+                          <span className="min-w-[36px] text-center text-[10px] text-slate-400">{Math.round(timelineZoom * 100)}%</span>
+                          <button type="button" onClick={() => setTimelineZoom((z) => Math.min(4, +(z + 0.25).toFixed(2)))} className="rounded-lg border border-slate-200 bg-white px-2 py-0.5 text-sm font-bold text-slate-600 hover:bg-slate-50 leading-none">+</button>
                         </div>
+                        <div className="overflow-x-auto rounded-xl">
+                          <div style={{ width: timelineW }}>
+                            {/* Month header */}
+                            <div className="relative h-6 overflow-hidden rounded-t-xl">
+                              {monthBands.map((band) => (
+                                <div key={band.key} className="absolute inset-y-0 flex items-center justify-center overflow-hidden border-r border-sky-500/40 bg-sky-700 last:border-r-0"
+                                  style={{ left: band.left, width: band.width }}>
+                                  <span className="truncate px-1 text-[10px] font-semibold capitalize text-white">{band.label}</span>
+                                </div>
+                              ))}
+                            </div>
+                            {/* Day ticks row */}
+                            <div className="relative h-7 border-b border-slate-200 bg-sky-50">
+                              {ticks.map((tick) => (
+                                <div key={tick.key} className="absolute inset-y-0 flex -translate-x-1/2 flex-col items-center justify-end pb-1" style={{ left: tick.left }}>
+                                  <span className="text-[9px] font-medium text-slate-600">{tick.day}</span>
+                                  <span className="mt-0.5 block h-1.5 w-px bg-slate-400" />
+                                </div>
+                              ))}
+                              {showToday && <div className="absolute inset-y-0 w-0.5 bg-red-500" style={{ left: `${todayPct}%` }} />}
+                            </div>
+                            {/* Timeline track */}
+                            <div className={`relative h-20 rounded-b-xl bg-slate-50 px-2 ${canComment ? "cursor-crosshair" : ""}`}
+                              onClick={canComment ? (e) => {
+                                const rect = e.currentTarget.getBoundingClientRect();
+                                setSelectedFiscClickDate(new Date(actStart + ((e.clientX - rect.left) / rect.width) * duration));
+                              } : undefined}>
+                              <div className="absolute left-2 right-2 top-1/2 h-2 -translate-y-1/2 rounded-full bg-slate-200" />
+                              {showToday && <div className="absolute inset-y-0 w-0.5 bg-red-500/70" style={{ left: `${todayPct}%` }} />}
+                              {comments.map((comment) => {
+                                const ct = new Date(comment.fechaInspeccion ?? comment.createdAt).getTime();
+                                const cl = Math.max(0, Math.min(100, ((ct - actStart) / duration) * 100));
+                                const bucket = Math.round(cl);
+                                const cnt = buckets.get(bucket) ?? 0; buckets.set(bucket, cnt + 1);
+                                const isSel = selectedCommentId === comment.id;
+                                return (
+                                  <button key={comment.id} className={getSeverityPointClasses(comment.severidad, isSel)} style={{ left: `${cl}%`, marginTop: (cnt % 3) * 18 - 18 }}
+                                    onClick={(e) => { e.stopPropagation(); setSelectedCommentId(isSel ? null : comment.id); }}>
+                                    <span className="text-[10px] font-black leading-none text-white">{getSeverityGlyph(comment.severidad)}</span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </div>
+                        {canComment && <p className="mt-2 text-[10px] text-slate-400">Haz clic en el timeline para registrar una fiscalización en esa fecha</p>}
                       </div>
                     );
                   })()}
