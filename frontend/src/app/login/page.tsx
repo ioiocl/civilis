@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import QRCode from "react-qr-code";
@@ -8,6 +8,14 @@ import type { Actividad, Comentario, Hito, Obra, ObraGeneral, UserSession } from
 import { apiFetch, API_BASE } from "../../lib/api";
 
 export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginContent />
+    </Suspense>
+  );
+}
+
+function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [session, setSession] = useState<UserSession | null>(null);
